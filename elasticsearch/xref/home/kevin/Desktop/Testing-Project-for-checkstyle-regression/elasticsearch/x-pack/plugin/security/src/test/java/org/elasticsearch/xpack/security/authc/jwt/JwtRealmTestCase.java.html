@@ -1,0 +1,721 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head><meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+<title>JwtRealmTestCase xref</title>
+<link type="text/css" rel="stylesheet" href="../../../../../../stylesheet.css" />
+</head>
+<body>
+<pre>
+<a class="jxr_linenumber" name="L1" href="#L1">1</a>   <em class="jxr_comment">/*</em>
+<a class="jxr_linenumber" name="L2" href="#L2">2</a>   <em class="jxr_comment"> * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one</em>
+<a class="jxr_linenumber" name="L3" href="#L3">3</a>   <em class="jxr_comment"> * or more contributor license agreements. Licensed under the Elastic License</em>
+<a class="jxr_linenumber" name="L4" href="#L4">4</a>   <em class="jxr_comment"> * 2.0; you may not use this file except in compliance with the Elastic License</em>
+<a class="jxr_linenumber" name="L5" href="#L5">5</a>   <em class="jxr_comment"> * 2.0.</em>
+<a class="jxr_linenumber" name="L6" href="#L6">6</a>   <em class="jxr_comment"> */</em>
+<a class="jxr_linenumber" name="L7" href="#L7">7</a>   <strong class="jxr_keyword">package</strong> org.elasticsearch.xpack.security.authc.jwt;
+<a class="jxr_linenumber" name="L8" href="#L8">8</a>   
+<a class="jxr_linenumber" name="L9" href="#L9">9</a>   <strong class="jxr_keyword">import</strong> com.nimbusds.jose.JOSEObjectType;
+<a class="jxr_linenumber" name="L10" href="#L10">10</a>  <strong class="jxr_keyword">import</strong> com.nimbusds.jose.jwk.JWK;
+<a class="jxr_linenumber" name="L11" href="#L11">11</a>  <strong class="jxr_keyword">import</strong> com.nimbusds.jwt.SignedJWT;
+<a class="jxr_linenumber" name="L12" href="#L12">12</a>  <strong class="jxr_keyword">import</strong> com.nimbusds.openid.connect.sdk.Nonce;
+<a class="jxr_linenumber" name="L13" href="#L13">13</a>  
+<a class="jxr_linenumber" name="L14" href="#L14">14</a>  <strong class="jxr_keyword">import</strong> org.apache.logging.log4j.LogManager;
+<a class="jxr_linenumber" name="L15" href="#L15">15</a>  <strong class="jxr_keyword">import</strong> org.apache.logging.log4j.Logger;
+<a class="jxr_linenumber" name="L16" href="#L16">16</a>  <strong class="jxr_keyword">import</strong> org.elasticsearch.action.support.PlainActionFuture;
+<a class="jxr_linenumber" name="L17" href="#L17">17</a>  <strong class="jxr_keyword">import</strong> org.elasticsearch.common.settings.MockSecureSettings;
+<a class="jxr_linenumber" name="L18" href="#L18">18</a>  <strong class="jxr_keyword">import</strong> org.elasticsearch.common.settings.SecureString;
+<a class="jxr_linenumber" name="L19" href="#L19">19</a>  <strong class="jxr_keyword">import</strong> org.elasticsearch.common.settings.Settings;
+<a class="jxr_linenumber" name="L20" href="#L20">20</a>  <strong class="jxr_keyword">import</strong> org.elasticsearch.common.util.concurrent.ThreadContext;
+<a class="jxr_linenumber" name="L21" href="#L21">21</a>  <strong class="jxr_keyword">import</strong> org.elasticsearch.core.PathUtils;
+<a class="jxr_linenumber" name="L22" href="#L22">22</a>  <strong class="jxr_keyword">import</strong> org.elasticsearch.env.TestEnvironment;
+<a class="jxr_linenumber" name="L23" href="#L23">23</a>  <strong class="jxr_keyword">import</strong> org.elasticsearch.license.MockLicenseState;
+<a class="jxr_linenumber" name="L24" href="#L24">24</a>  <strong class="jxr_keyword">import</strong> org.elasticsearch.threadpool.TestThreadPool;
+<a class="jxr_linenumber" name="L25" href="#L25">25</a>  <strong class="jxr_keyword">import</strong> org.elasticsearch.threadpool.ThreadPool;
+<a class="jxr_linenumber" name="L26" href="#L26">26</a>  <strong class="jxr_keyword">import</strong> org.elasticsearch.watcher.ResourceWatcherService;
+<a class="jxr_linenumber" name="L27" href="#L27">27</a>  <strong class="jxr_keyword">import</strong> org.elasticsearch.xpack.core.security.authc.AuthenticationResult;
+<a class="jxr_linenumber" name="L28" href="#L28">28</a>  <strong class="jxr_keyword">import</strong> org.elasticsearch.xpack.core.security.authc.AuthenticationToken;
+<a class="jxr_linenumber" name="L29" href="#L29">29</a>  <strong class="jxr_keyword">import</strong> org.elasticsearch.xpack.core.security.authc.Realm;
+<a class="jxr_linenumber" name="L30" href="#L30">30</a>  <strong class="jxr_keyword">import</strong> org.elasticsearch.xpack.core.security.authc.RealmConfig;
+<a class="jxr_linenumber" name="L31" href="#L31">31</a>  <strong class="jxr_keyword">import</strong> org.elasticsearch.xpack.core.security.authc.RealmSettings;
+<a class="jxr_linenumber" name="L32" href="#L32">32</a>  <strong class="jxr_keyword">import</strong> org.elasticsearch.xpack.core.security.authc.jwt.JwtRealmSettings;
+<a class="jxr_linenumber" name="L33" href="#L33">33</a>  <strong class="jxr_keyword">import</strong> org.elasticsearch.xpack.core.security.authc.jwt.JwtRealmSettings.ClientAuthenticationType;
+<a class="jxr_linenumber" name="L34" href="#L34">34</a>  <strong class="jxr_keyword">import</strong> org.elasticsearch.xpack.core.security.authc.jwt.JwtRealmsServiceSettings;
+<a class="jxr_linenumber" name="L35" href="#L35">35</a>  <strong class="jxr_keyword">import</strong> org.elasticsearch.xpack.core.security.authc.support.DelegatedAuthorizationSettings;
+<a class="jxr_linenumber" name="L36" href="#L36">36</a>  <strong class="jxr_keyword">import</strong> org.elasticsearch.xpack.core.security.authc.support.UserRoleMapper;
+<a class="jxr_linenumber" name="L37" href="#L37">37</a>  <strong class="jxr_keyword">import</strong> org.elasticsearch.xpack.core.security.user.User;
+<a class="jxr_linenumber" name="L38" href="#L38">38</a>  <strong class="jxr_keyword">import</strong> org.elasticsearch.xpack.core.ssl.SSLConfigurationSettings;
+<a class="jxr_linenumber" name="L39" href="#L39">39</a>  <strong class="jxr_keyword">import</strong> org.elasticsearch.xpack.core.ssl.SSLService;
+<a class="jxr_linenumber" name="L40" href="#L40">40</a>  <strong class="jxr_keyword">import</strong> org.elasticsearch.xpack.security.Security;
+<a class="jxr_linenumber" name="L41" href="#L41">41</a>  <strong class="jxr_keyword">import</strong> org.elasticsearch.xpack.security.authc.support.MockLookupRealm;
+<a class="jxr_linenumber" name="L42" href="#L42">42</a>  <strong class="jxr_keyword">import</strong> org.junit.After;
+<a class="jxr_linenumber" name="L43" href="#L43">43</a>  <strong class="jxr_keyword">import</strong> org.junit.Before;
+<a class="jxr_linenumber" name="L44" href="#L44">44</a>  
+<a class="jxr_linenumber" name="L45" href="#L45">45</a>  <strong class="jxr_keyword">import</strong> java.nio.file.Files;
+<a class="jxr_linenumber" name="L46" href="#L46">46</a>  <strong class="jxr_keyword">import</strong> java.nio.file.Path;
+<a class="jxr_linenumber" name="L47" href="#L47">47</a>  <strong class="jxr_keyword">import</strong> java.text.ParseException;
+<a class="jxr_linenumber" name="L48" href="#L48">48</a>  <strong class="jxr_keyword">import</strong> java.time.Instant;
+<a class="jxr_linenumber" name="L49" href="#L49">49</a>  <strong class="jxr_keyword">import</strong> java.time.temporal.ChronoUnit;
+<a class="jxr_linenumber" name="L50" href="#L50">50</a>  <strong class="jxr_keyword">import</strong> java.util.ArrayList;
+<a class="jxr_linenumber" name="L51" href="#L51">51</a>  <strong class="jxr_keyword">import</strong> java.util.Arrays;
+<a class="jxr_linenumber" name="L52" href="#L52">52</a>  <strong class="jxr_keyword">import</strong> java.util.Date;
+<a class="jxr_linenumber" name="L53" href="#L53">53</a>  <strong class="jxr_keyword">import</strong> java.util.List;
+<a class="jxr_linenumber" name="L54" href="#L54">54</a>  <strong class="jxr_keyword">import</strong> java.util.Map;
+<a class="jxr_linenumber" name="L55" href="#L55">55</a>  <strong class="jxr_keyword">import</strong> java.util.TreeSet;
+<a class="jxr_linenumber" name="L56" href="#L56">56</a>  <strong class="jxr_keyword">import</strong> java.util.concurrent.ExecutionException;
+<a class="jxr_linenumber" name="L57" href="#L57">57</a>  <strong class="jxr_keyword">import</strong> java.util.stream.IntStream;
+<a class="jxr_linenumber" name="L58" href="#L58">58</a>  
+<a class="jxr_linenumber" name="L59" href="#L59">59</a>  <strong class="jxr_keyword">import</strong> <strong class="jxr_keyword">static</strong> org.hamcrest.Matchers.anEmptyMap;
+<a class="jxr_linenumber" name="L60" href="#L60">60</a>  <strong class="jxr_keyword">import</strong> <strong class="jxr_keyword">static</strong> org.hamcrest.Matchers.empty;
+<a class="jxr_linenumber" name="L61" href="#L61">61</a>  <strong class="jxr_keyword">import</strong> <strong class="jxr_keyword">static</strong> org.hamcrest.Matchers.equalTo;
+<a class="jxr_linenumber" name="L62" href="#L62">62</a>  <strong class="jxr_keyword">import</strong> <strong class="jxr_keyword">static</strong> org.hamcrest.Matchers.greaterThanOrEqualTo;
+<a class="jxr_linenumber" name="L63" href="#L63">63</a>  <strong class="jxr_keyword">import</strong> <strong class="jxr_keyword">static</strong> org.hamcrest.Matchers.is;
+<a class="jxr_linenumber" name="L64" href="#L64">64</a>  <strong class="jxr_keyword">import</strong> <strong class="jxr_keyword">static</strong> org.hamcrest.Matchers.isA;
+<a class="jxr_linenumber" name="L65" href="#L65">65</a>  <strong class="jxr_keyword">import</strong> <strong class="jxr_keyword">static</strong> org.hamcrest.Matchers.not;
+<a class="jxr_linenumber" name="L66" href="#L66">66</a>  <strong class="jxr_keyword">import</strong> <strong class="jxr_keyword">static</strong> org.hamcrest.Matchers.notNullValue;
+<a class="jxr_linenumber" name="L67" href="#L67">67</a>  <strong class="jxr_keyword">import</strong> <strong class="jxr_keyword">static</strong> org.hamcrest.Matchers.nullValue;
+<a class="jxr_linenumber" name="L68" href="#L68">68</a>  <strong class="jxr_keyword">import</strong> <strong class="jxr_keyword">static</strong> org.mockito.Mockito.mock;
+<a class="jxr_linenumber" name="L69" href="#L69">69</a>  <strong class="jxr_keyword">import</strong> <strong class="jxr_keyword">static</strong> org.mockito.Mockito.when;
+<a class="jxr_linenumber" name="L70" href="#L70">70</a>  
+<a class="jxr_linenumber" name="L71" href="#L71">71</a>  <strong class="jxr_keyword">public</strong> <strong class="jxr_keyword">abstract</strong> <strong class="jxr_keyword">class</strong> JwtRealmTestCase <strong class="jxr_keyword">extends</strong> JwtTestCase {
+<a class="jxr_linenumber" name="L72" href="#L72">72</a>      <strong class="jxr_keyword">private</strong> <strong class="jxr_keyword">static</strong> <strong class="jxr_keyword">final</strong> Logger LOGGER = LogManager.getLogger(JwtRealmTestCase.<strong class="jxr_keyword">class</strong>);
+<a class="jxr_linenumber" name="L73" href="#L73">73</a>  
+<a class="jxr_linenumber" name="L74" href="#L74">74</a>      record JwtRealmsServiceSettingsBuilder(Settings.Builder settingsBuilder) {}
+<a class="jxr_linenumber" name="L75" href="#L75">75</a>  
+<a class="jxr_linenumber" name="L76" href="#L76">76</a>      record JwtRealmSettingsBuilder(String name, Settings.Builder settingsBuilder) {}
+<a class="jxr_linenumber" name="L77" href="#L77">77</a>  
+<a class="jxr_linenumber" name="L78" href="#L78">78</a>      record JwtIssuerAndRealm(JwtIssuer issuer, JwtRealm realm, JwtRealmSettingsBuilder realmSettingsBuilder) {}
+<a class="jxr_linenumber" name="L79" href="#L79">79</a>  
+<a class="jxr_linenumber" name="L80" href="#L80">80</a>      record MinMax(<strong class="jxr_keyword">int</strong> min, <strong class="jxr_keyword">int</strong> max) {
+<a class="jxr_linenumber" name="L81" href="#L81">81</a>          MinMax {
+<a class="jxr_linenumber" name="L82" href="#L82">82</a>              assert min &gt;= 0 &amp;&amp; max &gt;= min : <span class="jxr_string">"Invalid min="</span> + min + <span class="jxr_string">" max="</span> + max;
+<a class="jxr_linenumber" name="L83" href="#L83">83</a>          }
+<a class="jxr_linenumber" name="L84" href="#L84">84</a>      }
+<a class="jxr_linenumber" name="L85" href="#L85">85</a>  
+<a class="jxr_linenumber" name="L86" href="#L86">86</a>      <strong class="jxr_keyword">protected</strong> ThreadPool threadPool;
+<a class="jxr_linenumber" name="L87" href="#L87">87</a>      <strong class="jxr_keyword">protected</strong> ResourceWatcherService resourceWatcherService;
+<a class="jxr_linenumber" name="L88" href="#L88">88</a>      <strong class="jxr_keyword">protected</strong> MockLicenseState licenseState;
+<a class="jxr_linenumber" name="L89" href="#L89">89</a>      <strong class="jxr_keyword">protected</strong> List&lt;JwtIssuerAndRealm&gt; jwtIssuerAndRealms;
+<a class="jxr_linenumber" name="L90" href="#L90">90</a>  
+<a class="jxr_linenumber" name="L91" href="#L91">91</a>      @Before
+<a class="jxr_linenumber" name="L92" href="#L92">92</a>      <strong class="jxr_keyword">public</strong> <strong class="jxr_keyword">void</strong> init() <strong class="jxr_keyword">throws</strong> Exception {
+<a class="jxr_linenumber" name="L93" href="#L93">93</a>          <strong class="jxr_keyword">this</strong>.threadPool = <strong class="jxr_keyword">new</strong> TestThreadPool(<span class="jxr_string">"JWT realm tests"</span>);
+<a class="jxr_linenumber" name="L94" href="#L94">94</a>          <strong class="jxr_keyword">this</strong>.resourceWatcherService = <strong class="jxr_keyword">new</strong> ResourceWatcherService(Settings.EMPTY, <strong class="jxr_keyword">this</strong>.threadPool);
+<a class="jxr_linenumber" name="L95" href="#L95">95</a>          <strong class="jxr_keyword">this</strong>.licenseState = mock(MockLicenseState.<strong class="jxr_keyword">class</strong>);
+<a class="jxr_linenumber" name="L96" href="#L96">96</a>          when(<strong class="jxr_keyword">this</strong>.licenseState.isAllowed(Security.DELEGATED_AUTHORIZATION_FEATURE)).thenReturn(<strong class="jxr_keyword">true</strong>);
+<a class="jxr_linenumber" name="L97" href="#L97">97</a>      }
+<a class="jxr_linenumber" name="L98" href="#L98">98</a>  
+<a class="jxr_linenumber" name="L99" href="#L99">99</a>      @After
+<a class="jxr_linenumber" name="L100" href="#L100">100</a>     <strong class="jxr_keyword">public</strong> <strong class="jxr_keyword">void</strong> shutdown() <strong class="jxr_keyword">throws</strong> Exception {
+<a class="jxr_linenumber" name="L101" href="#L101">101</a>         <strong class="jxr_keyword">if</strong> (<strong class="jxr_keyword">this</strong>.jwtIssuerAndRealms != <strong class="jxr_keyword">null</strong>) {
+<a class="jxr_linenumber" name="L102" href="#L102">102</a>             <strong class="jxr_keyword">this</strong>.jwtIssuerAndRealms.forEach(jwtIssuerAndRealm -&gt; {
+<a class="jxr_linenumber" name="L103" href="#L103">103</a>                 jwtIssuerAndRealm.realm.close(); <em class="jxr_comment">// Close HTTPS client (if any)</em>
+<a class="jxr_linenumber" name="L104" href="#L104">104</a>                 jwtIssuerAndRealm.issuer.close(); <em class="jxr_comment">// Close HTTPS server (if any)</em>
+<a class="jxr_linenumber" name="L105" href="#L105">105</a>             });
+<a class="jxr_linenumber" name="L106" href="#L106">106</a>         }
+<a class="jxr_linenumber" name="L107" href="#L107">107</a>         <strong class="jxr_keyword">this</strong>.resourceWatcherService.close();
+<a class="jxr_linenumber" name="L108" href="#L108">108</a>         terminate(<strong class="jxr_keyword">this</strong>.threadPool);
+<a class="jxr_linenumber" name="L109" href="#L109">109</a>     }
+<a class="jxr_linenumber" name="L110" href="#L110">110</a> 
+<a class="jxr_linenumber" name="L111" href="#L111">111</a>     <strong class="jxr_keyword">protected</strong> <strong class="jxr_keyword">void</strong> verifyAuthenticateFailureHelper(
+<a class="jxr_linenumber" name="L112" href="#L112">112</a>         <strong class="jxr_keyword">final</strong> JwtIssuerAndRealm jwtIssuerAndRealm,
+<a class="jxr_linenumber" name="L113" href="#L113">113</a>         <strong class="jxr_keyword">final</strong> SecureString jwt,
+<a class="jxr_linenumber" name="L114" href="#L114">114</a>         <strong class="jxr_keyword">final</strong> SecureString clientSecret
+<a class="jxr_linenumber" name="L115" href="#L115">115</a>     ) <strong class="jxr_keyword">throws</strong> InterruptedException, ExecutionException {
+<a class="jxr_linenumber" name="L116" href="#L116">116</a>         <strong class="jxr_keyword">final</strong> ThreadContext tc = <strong class="jxr_keyword">super</strong>.createThreadContext(jwt, clientSecret);
+<a class="jxr_linenumber" name="L117" href="#L117">117</a>         <strong class="jxr_keyword">final</strong> JwtAuthenticationToken token = (JwtAuthenticationToken) jwtIssuerAndRealm.realm.token(tc);
+<a class="jxr_linenumber" name="L118" href="#L118">118</a>         <strong class="jxr_keyword">final</strong> PlainActionFuture&lt;AuthenticationResult&lt;User&gt;&gt; plainActionFuture = PlainActionFuture.newFuture();
+<a class="jxr_linenumber" name="L119" href="#L119">119</a>         jwtIssuerAndRealm.realm.authenticate(token, plainActionFuture);
+<a class="jxr_linenumber" name="L120" href="#L120">120</a>         assertThat(plainActionFuture.get(), is(notNullValue()));
+<a class="jxr_linenumber" name="L121" href="#L121">121</a>         assertThat(plainActionFuture.get().isAuthenticated(), is(false));
+<a class="jxr_linenumber" name="L122" href="#L122">122</a>     }
+<a class="jxr_linenumber" name="L123" href="#L123">123</a> 
+<a class="jxr_linenumber" name="L124" href="#L124">124</a>     <strong class="jxr_keyword">protected</strong> JwtRealmsService generateJwtRealmsService(<strong class="jxr_keyword">final</strong> JwtRealmsServiceSettingsBuilder jwtRealmRealmsSettingsBuilder) {
+<a class="jxr_linenumber" name="L125" href="#L125">125</a>         <strong class="jxr_keyword">return</strong> <strong class="jxr_keyword">new</strong> JwtRealmsService(jwtRealmRealmsSettingsBuilder.settingsBuilder.build());
+<a class="jxr_linenumber" name="L126" href="#L126">126</a>     }
+<a class="jxr_linenumber" name="L127" href="#L127">127</a> 
+<a class="jxr_linenumber" name="L128" href="#L128">128</a>     <strong class="jxr_keyword">protected</strong> List&lt;JwtIssuerAndRealm&gt; generateJwtIssuerRealmPairs(
+<a class="jxr_linenumber" name="L129" href="#L129">129</a>         <strong class="jxr_keyword">final</strong> JwtRealmsServiceSettingsBuilder jwtRealmsServiceSettingsBuilder,
+<a class="jxr_linenumber" name="L130" href="#L130">130</a>         <strong class="jxr_keyword">final</strong> MinMax realmsRange,
+<a class="jxr_linenumber" name="L131" href="#L131">131</a>         <strong class="jxr_keyword">final</strong> MinMax authzRange,
+<a class="jxr_linenumber" name="L132" href="#L132">132</a>         <strong class="jxr_keyword">final</strong> MinMax algsRange,
+<a class="jxr_linenumber" name="L133" href="#L133">133</a>         <strong class="jxr_keyword">final</strong> MinMax audiencesRange,
+<a class="jxr_linenumber" name="L134" href="#L134">134</a>         <strong class="jxr_keyword">final</strong> MinMax usersRange,
+<a class="jxr_linenumber" name="L135" href="#L135">135</a>         <strong class="jxr_keyword">final</strong> MinMax rolesRange,
+<a class="jxr_linenumber" name="L136" href="#L136">136</a>         <strong class="jxr_keyword">final</strong> MinMax jwtCacheSizeRange,
+<a class="jxr_linenumber" name="L137" href="#L137">137</a>         <strong class="jxr_keyword">final</strong> <strong class="jxr_keyword">boolean</strong> createHttpsServer
+<a class="jxr_linenumber" name="L138" href="#L138">138</a>     ) <strong class="jxr_keyword">throws</strong> Exception {
+<a class="jxr_linenumber" name="L139" href="#L139">139</a>         assertThat(realmsRange.min(), is(greaterThanOrEqualTo(1)));
+<a class="jxr_linenumber" name="L140" href="#L140">140</a>         assertThat(authzRange.min(), is(greaterThanOrEqualTo(0)));
+<a class="jxr_linenumber" name="L141" href="#L141">141</a>         assertThat(algsRange.min(), is(greaterThanOrEqualTo(1)));
+<a class="jxr_linenumber" name="L142" href="#L142">142</a>         assertThat(audiencesRange.min(), is(greaterThanOrEqualTo(1)));
+<a class="jxr_linenumber" name="L143" href="#L143">143</a>         assertThat(usersRange.min(), is(greaterThanOrEqualTo(1)));
+<a class="jxr_linenumber" name="L144" href="#L144">144</a>         assertThat(rolesRange.min(), is(greaterThanOrEqualTo(0)));
+<a class="jxr_linenumber" name="L145" href="#L145">145</a>         assertThat(jwtCacheSizeRange.min(), is(greaterThanOrEqualTo(0)));
+<a class="jxr_linenumber" name="L146" href="#L146">146</a> 
+<a class="jxr_linenumber" name="L147" href="#L147">147</a>         <em class="jxr_comment">// Create JWT authc realms and mocked authz realms. Initialize each JWT realm, and test ensureInitialized() before and after.</em>
+<a class="jxr_linenumber" name="L148" href="#L148">148</a>         <strong class="jxr_keyword">final</strong> JwtRealmsService jwtRealmsService = <strong class="jxr_keyword">this</strong>.generateJwtRealmsService(jwtRealmsServiceSettingsBuilder);
+<a class="jxr_linenumber" name="L149" href="#L149">149</a>         <strong class="jxr_keyword">final</strong> <strong class="jxr_keyword">int</strong> realmsCount = randomIntBetween(realmsRange.min(), realmsRange.max());
+<a class="jxr_linenumber" name="L150" href="#L150">150</a>         <strong class="jxr_keyword">final</strong> List&lt;Realm&gt; allRealms = <strong class="jxr_keyword">new</strong> ArrayList&lt;&gt;(); <em class="jxr_comment">// authc and authz realms</em>
+<a class="jxr_linenumber" name="L151" href="#L151">151</a>         <strong class="jxr_keyword">this</strong>.jwtIssuerAndRealms = <strong class="jxr_keyword">new</strong> ArrayList&lt;&gt;(realmsCount);
+<a class="jxr_linenumber" name="L152" href="#L152">152</a>         <strong class="jxr_keyword">for</strong> (<strong class="jxr_keyword">int</strong> i = 0; i &lt; realmsCount; i++) {
+<a class="jxr_linenumber" name="L153" href="#L153">153</a>             <strong class="jxr_keyword">final</strong> <strong class="jxr_keyword">int</strong> authzCount = randomIntBetween(authzRange.min(), authzRange.max());
+<a class="jxr_linenumber" name="L154" href="#L154">154</a>             <strong class="jxr_keyword">final</strong> <strong class="jxr_keyword">int</strong> algsCount = randomIntBetween(algsRange.min(), algsRange.max());
+<a class="jxr_linenumber" name="L155" href="#L155">155</a>             <strong class="jxr_keyword">final</strong> <strong class="jxr_keyword">int</strong> audiencesCount = randomIntBetween(audiencesRange.min(), audiencesRange.max());
+<a class="jxr_linenumber" name="L156" href="#L156">156</a>             <strong class="jxr_keyword">final</strong> <strong class="jxr_keyword">int</strong> usersCount = randomIntBetween(usersRange.min(), usersRange.max());
+<a class="jxr_linenumber" name="L157" href="#L157">157</a>             <strong class="jxr_keyword">final</strong> <strong class="jxr_keyword">int</strong> rolesCount = randomIntBetween(rolesRange.min(), rolesRange.max());
+<a class="jxr_linenumber" name="L158" href="#L158">158</a>             <strong class="jxr_keyword">final</strong> <strong class="jxr_keyword">int</strong> jwtCacheSize = randomIntBetween(jwtCacheSizeRange.min(), jwtCacheSizeRange.max());
+<a class="jxr_linenumber" name="L159" href="#L159">159</a> 
+<a class="jxr_linenumber" name="L160" href="#L160">160</a>             <strong class="jxr_keyword">final</strong> JwtIssuer jwtIssuer = <strong class="jxr_keyword">this</strong>.createJwtIssuer(
+<a class="jxr_linenumber" name="L161" href="#L161">161</a>                 i,
+<a class="jxr_linenumber" name="L162" href="#L162">162</a>                 randomFrom(jwtRealmsService.getPrincipalClaimNames()),
+<a class="jxr_linenumber" name="L163" href="#L163">163</a>                 algsCount,
+<a class="jxr_linenumber" name="L164" href="#L164">164</a>                 audiencesCount,
+<a class="jxr_linenumber" name="L165" href="#L165">165</a>                 usersCount,
+<a class="jxr_linenumber" name="L166" href="#L166">166</a>                 rolesCount,
+<a class="jxr_linenumber" name="L167" href="#L167">167</a>                 createHttpsServer
+<a class="jxr_linenumber" name="L168" href="#L168">168</a>             );
+<a class="jxr_linenumber" name="L169" href="#L169">169</a>             <em class="jxr_comment">// If HTTPS server was created in JWT issuer, any exception after that point requires closing it to avoid a thread pool leak</em>
+<a class="jxr_linenumber" name="L170" href="#L170">170</a>             <strong class="jxr_keyword">try</strong> {
+<a class="jxr_linenumber" name="L171" href="#L171">171</a>                 <strong class="jxr_keyword">final</strong> JwtRealmSettingsBuilder realmSettingsBuilder = <strong class="jxr_keyword">this</strong>.createJwtRealmSettingsBuilder(
+<a class="jxr_linenumber" name="L172" href="#L172">172</a>                     jwtIssuer,
+<a class="jxr_linenumber" name="L173" href="#L173">173</a>                     authzCount,
+<a class="jxr_linenumber" name="L174" href="#L174">174</a>                     jwtCacheSize
+<a class="jxr_linenumber" name="L175" href="#L175">175</a>                 );
+<a class="jxr_linenumber" name="L176" href="#L176">176</a>                 <strong class="jxr_keyword">final</strong> JwtRealm jwtRealm = <strong class="jxr_keyword">this</strong>.createJwtRealm(allRealms, jwtRealmsService, jwtIssuer, realmSettingsBuilder);
+<a class="jxr_linenumber" name="L177" href="#L177">177</a> 
+<a class="jxr_linenumber" name="L178" href="#L178">178</a>                 <em class="jxr_comment">// verify exception before initialize()</em>
+<a class="jxr_linenumber" name="L179" href="#L179">179</a>                 <strong class="jxr_keyword">final</strong> Exception exception = expectThrows(IllegalStateException.<strong class="jxr_keyword">class</strong>, jwtRealm::ensureInitialized);
+<a class="jxr_linenumber" name="L180" href="#L180">180</a>                 assertThat(exception.getMessage(), equalTo(<span class="jxr_string">"Realm has not been initialized"</span>));
+<a class="jxr_linenumber" name="L181" href="#L181">181</a> 
+<a class="jxr_linenumber" name="L182" href="#L182">182</a>                 <strong class="jxr_keyword">final</strong> JwtIssuerAndRealm jwtIssuerAndRealm = <strong class="jxr_keyword">new</strong> JwtIssuerAndRealm(jwtIssuer, jwtRealm, realmSettingsBuilder);
+<a class="jxr_linenumber" name="L183" href="#L183">183</a>                 <strong class="jxr_keyword">this</strong>.jwtIssuerAndRealms.add(jwtIssuerAndRealm);
+<a class="jxr_linenumber" name="L184" href="#L184">184</a>             } <strong class="jxr_keyword">catch</strong> (Throwable t) {
+<a class="jxr_linenumber" name="L185" href="#L185">185</a>                 jwtIssuer.close();
+<a class="jxr_linenumber" name="L186" href="#L186">186</a>                 <strong class="jxr_keyword">throw</strong> t;
+<a class="jxr_linenumber" name="L187" href="#L187">187</a>             }
+<a class="jxr_linenumber" name="L188" href="#L188">188</a>         }
+<a class="jxr_linenumber" name="L189" href="#L189">189</a>         allRealms.forEach(realm -&gt; realm.initialize(allRealms, <strong class="jxr_keyword">this</strong>.licenseState)); <em class="jxr_comment">// JWT realms and authz realms</em>
+<a class="jxr_linenumber" name="L190" href="#L190">190</a>         <strong class="jxr_keyword">this</strong>.jwtIssuerAndRealms.forEach(p -&gt; p.realm.ensureInitialized()); <em class="jxr_comment">// verify no exception after initialize()</em>
+<a class="jxr_linenumber" name="L191" href="#L191">191</a>         <strong class="jxr_keyword">return</strong> <strong class="jxr_keyword">this</strong>.jwtIssuerAndRealms;
+<a class="jxr_linenumber" name="L192" href="#L192">192</a>     }
+<a class="jxr_linenumber" name="L193" href="#L193">193</a> 
+<a class="jxr_linenumber" name="L194" href="#L194">194</a>     <strong class="jxr_keyword">protected</strong> JwtIssuer createJwtIssuer(
+<a class="jxr_linenumber" name="L195" href="#L195">195</a>         <strong class="jxr_keyword">final</strong> <strong class="jxr_keyword">int</strong> i,
+<a class="jxr_linenumber" name="L196" href="#L196">196</a>         <strong class="jxr_keyword">final</strong> String principalClaimName,
+<a class="jxr_linenumber" name="L197" href="#L197">197</a>         <strong class="jxr_keyword">final</strong> <strong class="jxr_keyword">int</strong> algsCount,
+<a class="jxr_linenumber" name="L198" href="#L198">198</a>         <strong class="jxr_keyword">final</strong> <strong class="jxr_keyword">int</strong> audiencesCount,
+<a class="jxr_linenumber" name="L199" href="#L199">199</a>         <strong class="jxr_keyword">final</strong> <strong class="jxr_keyword">int</strong> userCount,
+<a class="jxr_linenumber" name="L200" href="#L200">200</a>         <strong class="jxr_keyword">final</strong> <strong class="jxr_keyword">int</strong> roleCount,
+<a class="jxr_linenumber" name="L201" href="#L201">201</a>         <strong class="jxr_keyword">final</strong> <strong class="jxr_keyword">boolean</strong> createHttpsServer
+<a class="jxr_linenumber" name="L202" href="#L202">202</a>     ) <strong class="jxr_keyword">throws</strong> Exception {
+<a class="jxr_linenumber" name="L203" href="#L203">203</a>         <strong class="jxr_keyword">final</strong> String issuer = <span class="jxr_string">"iss"</span> + (i + 1) + <span class="jxr_string">"_"</span> + randomIntBetween(0, 9999);
+<a class="jxr_linenumber" name="L204" href="#L204">204</a>         <strong class="jxr_keyword">final</strong> List&lt;String&gt; audiences = IntStream.range(0, audiencesCount).mapToObj(j -&gt; issuer + <span class="jxr_string">"_aud"</span> + (j + 1)).toList();
+<a class="jxr_linenumber" name="L205" href="#L205">205</a>         <strong class="jxr_keyword">final</strong> Map&lt;String, User&gt; users = JwtTestCase.generateTestUsersWithRoles(userCount, roleCount);
+<a class="jxr_linenumber" name="L206" href="#L206">206</a>         <em class="jxr_comment">// Allow algorithm repeats, to cover testing of multiple JWKs for same algorithm</em>
+<a class="jxr_linenumber" name="L207" href="#L207">207</a>         <strong class="jxr_keyword">final</strong> JwtIssuer jwtIssuer = <strong class="jxr_keyword">new</strong> JwtIssuer(issuer, audiences, principalClaimName, users, createHttpsServer);
+<a class="jxr_linenumber" name="L208" href="#L208">208</a>         <strong class="jxr_keyword">final</strong> List&lt;String&gt; algorithms = randomOfMinMaxNonUnique(algsCount, algsCount, JwtRealmSettings.SUPPORTED_SIGNATURE_ALGORITHMS);
+<a class="jxr_linenumber" name="L209" href="#L209">209</a>         <strong class="jxr_keyword">final</strong> <strong class="jxr_keyword">boolean</strong> areHmacJwksOidcSafe = randomBoolean();
+<a class="jxr_linenumber" name="L210" href="#L210">210</a>         <strong class="jxr_keyword">final</strong> List&lt;JwtIssuer.AlgJwkPair&gt; algAndJwks = JwtRealmTestCase.randomJwks(algorithms, areHmacJwksOidcSafe);
+<a class="jxr_linenumber" name="L211" href="#L211">211</a>         jwtIssuer.setJwks(algAndJwks, areHmacJwksOidcSafe);
+<a class="jxr_linenumber" name="L212" href="#L212">212</a>         <strong class="jxr_keyword">return</strong> jwtIssuer;
+<a class="jxr_linenumber" name="L213" href="#L213">213</a>     }
+<a class="jxr_linenumber" name="L214" href="#L214">214</a> 
+<a class="jxr_linenumber" name="L215" href="#L215">215</a>     <strong class="jxr_keyword">protected</strong> <strong class="jxr_keyword">void</strong> copyIssuerJwksToRealmConfig(<strong class="jxr_keyword">final</strong> JwtIssuerAndRealm jwtIssuerAndRealm) <strong class="jxr_keyword">throws</strong> Exception {
+<a class="jxr_linenumber" name="L216" href="#L216">216</a>         <strong class="jxr_keyword">if</strong> ((jwtIssuerAndRealm.realm.isConfiguredJwkSetPkc) &amp;&amp; (jwtIssuerAndRealm.realm.getJwkSetPathUri() == <strong class="jxr_keyword">null</strong>)) {
+<a class="jxr_linenumber" name="L217" href="#L217">217</a>             LOGGER.trace(<span class="jxr_string">"Updating JwtRealm PKC public JWKSet local file"</span>);
+<a class="jxr_linenumber" name="L218" href="#L218">218</a>             <strong class="jxr_keyword">final</strong> Path path = PathUtils.get(jwtIssuerAndRealm.realm.jwkSetPath);
+<a class="jxr_linenumber" name="L219" href="#L219">219</a>             Files.writeString(path, jwtIssuerAndRealm.issuer.encodedJwkSetPkcPublic);
+<a class="jxr_linenumber" name="L220" href="#L220">220</a>         }
+<a class="jxr_linenumber" name="L221" href="#L221">221</a> 
+<a class="jxr_linenumber" name="L222" href="#L222">222</a>         <em class="jxr_comment">// TODO If x-pack Security plug-in add supports for reloadable settings, update HMAC JWKSet and HMAC OIDC JWK in ES Keystore</em>
+<a class="jxr_linenumber" name="L223" href="#L223">223</a>     }
+<a class="jxr_linenumber" name="L224" href="#L224">224</a> 
+<a class="jxr_linenumber" name="L225" href="#L225">225</a>     <strong class="jxr_keyword">protected</strong> JwtRealmsServiceSettingsBuilder createJwtRealmsSettingsBuilder() <strong class="jxr_keyword">throws</strong> Exception {
+<a class="jxr_linenumber" name="L226" href="#L226">226</a>         <strong class="jxr_keyword">final</strong> List&lt;String&gt; principalClaimNames = randomBoolean()
+<a class="jxr_linenumber" name="L227" href="#L227">227</a>             ? List.of(<span class="jxr_string">"principalClaim_"</span> + randomAlphaOfLength(6))
+<a class="jxr_linenumber" name="L228" href="#L228">228</a>             : randomSubsetOf(randomIntBetween(1, 6), JwtRealmsServiceSettings.DEFAULT_PRINCIPAL_CLAIMS);
+<a class="jxr_linenumber" name="L229" href="#L229">229</a> 
+<a class="jxr_linenumber" name="L230" href="#L230">230</a>         <strong class="jxr_keyword">final</strong> Settings.Builder jwtRealmsServiceSettings = Settings.builder()
+<a class="jxr_linenumber" name="L231" href="#L231">231</a>             .put(<strong class="jxr_keyword">this</strong>.globalSettings)
+<a class="jxr_linenumber" name="L232" href="#L232">232</a>             .put(JwtRealmsServiceSettings.PRINCIPAL_CLAIMS_SETTING.getKey(), String.join(<span class="jxr_string">","</span>, principalClaimNames));
+<a class="jxr_linenumber" name="L233" href="#L233">233</a> 
+<a class="jxr_linenumber" name="L234" href="#L234">234</a>         <strong class="jxr_keyword">final</strong> MockSecureSettings secureSettings = <strong class="jxr_keyword">new</strong> MockSecureSettings(); <em class="jxr_comment">// none for now, placeholder for future</em>
+<a class="jxr_linenumber" name="L235" href="#L235">235</a>         jwtRealmsServiceSettings.setSecureSettings(secureSettings);
+<a class="jxr_linenumber" name="L236" href="#L236">236</a> 
+<a class="jxr_linenumber" name="L237" href="#L237">237</a>         <strong class="jxr_keyword">return</strong> <strong class="jxr_keyword">new</strong> JwtRealmsServiceSettingsBuilder(jwtRealmsServiceSettings);
+<a class="jxr_linenumber" name="L238" href="#L238">238</a>     }
+<a class="jxr_linenumber" name="L239" href="#L239">239</a> 
+<a class="jxr_linenumber" name="L240" href="#L240">240</a>     <strong class="jxr_keyword">protected</strong> JwtRealmSettingsBuilder createJwtRealmSettingsBuilder(<strong class="jxr_keyword">final</strong> JwtIssuer jwtIssuer, <strong class="jxr_keyword">final</strong> <strong class="jxr_keyword">int</strong> authzCount, <strong class="jxr_keyword">final</strong> <strong class="jxr_keyword">int</strong> jwtCacheSize)
+<a class="jxr_linenumber" name="L241" href="#L241">241</a>         <strong class="jxr_keyword">throws</strong> Exception {
+<a class="jxr_linenumber" name="L242" href="#L242">242</a>         <strong class="jxr_keyword">final</strong> String authcRealmName = <span class="jxr_string">"realm_"</span> + jwtIssuer.issuerClaimValue;
+<a class="jxr_linenumber" name="L243" href="#L243">243</a>         <strong class="jxr_keyword">final</strong> String[] authzRealmNames = IntStream.range(0, authzCount).mapToObj(z -&gt; authcRealmName + <span class="jxr_string">"_authz"</span> + z).toArray(String[]::<strong class="jxr_keyword">new</strong>);
+<a class="jxr_linenumber" name="L244" href="#L244">244</a> 
+<a class="jxr_linenumber" name="L245" href="#L245">245</a>         <strong class="jxr_keyword">final</strong> ClientAuthenticationType clientAuthenticationType = randomFrom(ClientAuthenticationType.values());
+<a class="jxr_linenumber" name="L246" href="#L246">246</a>         <strong class="jxr_keyword">final</strong> Settings.Builder authcSettings = Settings.builder()
+<a class="jxr_linenumber" name="L247" href="#L247">247</a>             .put(<strong class="jxr_keyword">this</strong>.globalSettings)
+<a class="jxr_linenumber" name="L248" href="#L248">248</a>             .put(RealmSettings.getFullSettingKey(authcRealmName, JwtRealmSettings.ALLOWED_ISSUER), jwtIssuer.issuerClaimValue)
+<a class="jxr_linenumber" name="L249" href="#L249">249</a>             .put(
+<a class="jxr_linenumber" name="L250" href="#L250">250</a>                 RealmSettings.getFullSettingKey(authcRealmName, JwtRealmSettings.ALLOWED_SIGNATURE_ALGORITHMS),
+<a class="jxr_linenumber" name="L251" href="#L251">251</a>                 String.join(<span class="jxr_string">","</span>, jwtIssuer.algorithmsAll)
+<a class="jxr_linenumber" name="L252" href="#L252">252</a>             )
+<a class="jxr_linenumber" name="L253" href="#L253">253</a>             .put(
+<a class="jxr_linenumber" name="L254" href="#L254">254</a>                 RealmSettings.getFullSettingKey(authcRealmName, JwtRealmSettings.ALLOWED_AUDIENCES),
+<a class="jxr_linenumber" name="L255" href="#L255">255</a>                 randomFrom(jwtIssuer.audiencesClaimValue)
+<a class="jxr_linenumber" name="L256" href="#L256">256</a>             );
+<a class="jxr_linenumber" name="L257" href="#L257">257</a>         authcSettings.put(
+<a class="jxr_linenumber" name="L258" href="#L258">258</a>             RealmSettings.getFullSettingKey(authcRealmName, JwtRealmSettings.CLAIMS_PRINCIPAL.getClaim()),
+<a class="jxr_linenumber" name="L259" href="#L259">259</a>             jwtIssuer.principalClaimName
+<a class="jxr_linenumber" name="L260" href="#L260">260</a>         );
+<a class="jxr_linenumber" name="L261" href="#L261">261</a>         <strong class="jxr_keyword">if</strong> ((ClientAuthenticationType.SHARED_SECRET != clientAuthenticationType) || (randomBoolean())) {
+<a class="jxr_linenumber" name="L262" href="#L262">262</a>             <em class="jxr_comment">// always set "None", optionally set "SharedSecret" or let it get picked by default</em>
+<a class="jxr_linenumber" name="L263" href="#L263">263</a>             authcSettings.put(
+<a class="jxr_linenumber" name="L264" href="#L264">264</a>                 RealmSettings.getFullSettingKey(authcRealmName, JwtRealmSettings.CLIENT_AUTHENTICATION_TYPE),
+<a class="jxr_linenumber" name="L265" href="#L265">265</a>                 clientAuthenticationType
+<a class="jxr_linenumber" name="L266" href="#L266">266</a>             );
+<a class="jxr_linenumber" name="L267" href="#L267">267</a>         }
+<a class="jxr_linenumber" name="L268" href="#L268">268</a>         <strong class="jxr_keyword">if</strong> (randomBoolean()) {
+<a class="jxr_linenumber" name="L269" href="#L269">269</a>             <em class="jxr_comment">// optionally allow default, or set -1 disabled or non-zero for enabled</em>
+<a class="jxr_linenumber" name="L270" href="#L270">270</a>             authcSettings.put(
+<a class="jxr_linenumber" name="L271" href="#L271">271</a>                 RealmSettings.getFullSettingKey(authcRealmName, JwtRealmSettings.ALLOWED_CLOCK_SKEW),
+<a class="jxr_linenumber" name="L272" href="#L272">272</a>                 randomBoolean() ? <span class="jxr_string">"-1"</span> : randomBoolean() ? <span class="jxr_string">"0"</span> : randomIntBetween(1, 5) + randomFrom(<span class="jxr_string">"s"</span>, <span class="jxr_string">"m"</span>, <span class="jxr_string">"h"</span>)
+<a class="jxr_linenumber" name="L273" href="#L273">273</a>             );
+<a class="jxr_linenumber" name="L274" href="#L274">274</a>         }
+<a class="jxr_linenumber" name="L275" href="#L275">275</a>         <strong class="jxr_keyword">if</strong> (jwtIssuer.encodedJwkSetPkcPublic.isEmpty() == false) {
+<a class="jxr_linenumber" name="L276" href="#L276">276</a>             <strong class="jxr_keyword">final</strong> String jwkSetPath; <em class="jxr_comment">// file or HTTPS URL</em>
+<a class="jxr_linenumber" name="L277" href="#L277">277</a>             <strong class="jxr_keyword">if</strong> (jwtIssuer.httpsServer == <strong class="jxr_keyword">null</strong>) {
+<a class="jxr_linenumber" name="L278" href="#L278">278</a>                 jwkSetPath = <strong class="jxr_keyword">super</strong>.saveToTempFile(<span class="jxr_string">"jwkset."</span>, <span class="jxr_string">".json"</span>, jwtIssuer.encodedJwkSetPkcPublic);
+<a class="jxr_linenumber" name="L279" href="#L279">279</a>             } <strong class="jxr_keyword">else</strong> {
+<a class="jxr_linenumber" name="L280" href="#L280">280</a>                 authcSettings.putList(
+<a class="jxr_linenumber" name="L281" href="#L281">281</a>                     RealmSettings.getFullSettingKey(
+<a class="jxr_linenumber" name="L282" href="#L282">282</a>                         <strong class="jxr_keyword">new</strong> RealmConfig.RealmIdentifier(JwtRealmSettings.TYPE, authcRealmName),
+<a class="jxr_linenumber" name="L283" href="#L283">283</a>                         SSLConfigurationSettings.CAPATH_SETTING_REALM
+<a class="jxr_linenumber" name="L284" href="#L284">284</a>                     ),
+<a class="jxr_linenumber" name="L285" href="#L285">285</a>                     JwtIssuerHttpsServer.CERT_PATH.toString()
+<a class="jxr_linenumber" name="L286" href="#L286">286</a>                 );
+<a class="jxr_linenumber" name="L287" href="#L287">287</a>                 jwkSetPath = jwtIssuer.httpsServer.url;
+<a class="jxr_linenumber" name="L288" href="#L288">288</a>             }
+<a class="jxr_linenumber" name="L289" href="#L289">289</a>             authcSettings.put(RealmSettings.getFullSettingKey(authcRealmName, JwtRealmSettings.PKC_JWKSET_PATH), jwkSetPath);
+<a class="jxr_linenumber" name="L290" href="#L290">290</a>         }
+<a class="jxr_linenumber" name="L291" href="#L291">291</a>         <strong class="jxr_keyword">if</strong> (randomBoolean()) {
+<a class="jxr_linenumber" name="L292" href="#L292">292</a>             <em class="jxr_comment">// principal claim name is required, but principal claim pattern is optional</em>
+<a class="jxr_linenumber" name="L293" href="#L293">293</a>             authcSettings.put(RealmSettings.getFullSettingKey(authcRealmName, JwtRealmSettings.CLAIMS_PRINCIPAL.getPattern()), <span class="jxr_string">"^(.*)$"</span>);
+<a class="jxr_linenumber" name="L294" href="#L294">294</a>         }
+<a class="jxr_linenumber" name="L295" href="#L295">295</a>         <strong class="jxr_keyword">if</strong> (randomBoolean()) {
+<a class="jxr_linenumber" name="L296" href="#L296">296</a>             <em class="jxr_comment">// groups claim name is optional</em>
+<a class="jxr_linenumber" name="L297" href="#L297">297</a>             authcSettings.put(
+<a class="jxr_linenumber" name="L298" href="#L298">298</a>                 RealmSettings.getFullSettingKey(authcRealmName, JwtRealmSettings.CLAIMS_GROUPS.getClaim()),
+<a class="jxr_linenumber" name="L299" href="#L299">299</a>                 authcRealmName + <span class="jxr_string">"_groups"</span>
+<a class="jxr_linenumber" name="L300" href="#L300">300</a>             );
+<a class="jxr_linenumber" name="L301" href="#L301">301</a>             <strong class="jxr_keyword">if</strong> (randomBoolean()) {
+<a class="jxr_linenumber" name="L302" href="#L302">302</a>                 <em class="jxr_comment">// if groups claim name is set, groups claim pattern is optional</em>
+<a class="jxr_linenumber" name="L303" href="#L303">303</a>                 authcSettings.put(RealmSettings.getFullSettingKey(authcRealmName, JwtRealmSettings.CLAIMS_GROUPS.getPattern()), <span class="jxr_string">"^(.*)$"</span>);
+<a class="jxr_linenumber" name="L304" href="#L304">304</a>             }
+<a class="jxr_linenumber" name="L305" href="#L305">305</a>         }
+<a class="jxr_linenumber" name="L306" href="#L306">306</a>         <strong class="jxr_keyword">if</strong> (randomBoolean()) {
+<a class="jxr_linenumber" name="L307" href="#L307">307</a>             <em class="jxr_comment">// dn claim name is optional</em>
+<a class="jxr_linenumber" name="L308" href="#L308">308</a>             authcSettings.put(
+<a class="jxr_linenumber" name="L309" href="#L309">309</a>                 RealmSettings.getFullSettingKey(authcRealmName, JwtRealmSettings.CLAIMS_DN.getClaim()),
+<a class="jxr_linenumber" name="L310" href="#L310">310</a>                 authcRealmName + <span class="jxr_string">"_dn"</span>
+<a class="jxr_linenumber" name="L311" href="#L311">311</a>             );
+<a class="jxr_linenumber" name="L312" href="#L312">312</a>             <strong class="jxr_keyword">if</strong> (randomBoolean()) {
+<a class="jxr_linenumber" name="L313" href="#L313">313</a>                 <em class="jxr_comment">// if dn claim name is set, dn claim pattern is optional</em>
+<a class="jxr_linenumber" name="L314" href="#L314">314</a>                 authcSettings.put(RealmSettings.getFullSettingKey(authcRealmName, JwtRealmSettings.CLAIMS_DN.getPattern()), <span class="jxr_string">"^(.*)$"</span>);
+<a class="jxr_linenumber" name="L315" href="#L315">315</a>             }
+<a class="jxr_linenumber" name="L316" href="#L316">316</a>         }
+<a class="jxr_linenumber" name="L317" href="#L317">317</a>         <strong class="jxr_keyword">if</strong> (randomBoolean()) {
+<a class="jxr_linenumber" name="L318" href="#L318">318</a>             <em class="jxr_comment">// mail claim name is optional</em>
+<a class="jxr_linenumber" name="L319" href="#L319">319</a>             authcSettings.put(
+<a class="jxr_linenumber" name="L320" href="#L320">320</a>                 RealmSettings.getFullSettingKey(authcRealmName, JwtRealmSettings.CLAIMS_MAIL.getClaim()),
+<a class="jxr_linenumber" name="L321" href="#L321">321</a>                 authcRealmName + <span class="jxr_string">"_mail"</span>
+<a class="jxr_linenumber" name="L322" href="#L322">322</a>             );
+<a class="jxr_linenumber" name="L323" href="#L323">323</a>             <strong class="jxr_keyword">if</strong> (randomBoolean()) {
+<a class="jxr_linenumber" name="L324" href="#L324">324</a>                 <em class="jxr_comment">// if mail claim name is set, dn claim pattern is optional</em>
+<a class="jxr_linenumber" name="L325" href="#L325">325</a>                 authcSettings.put(RealmSettings.getFullSettingKey(authcRealmName, JwtRealmSettings.CLAIMS_MAIL.getPattern()), <span class="jxr_string">"^(.*)$"</span>);
+<a class="jxr_linenumber" name="L326" href="#L326">326</a>             }
+<a class="jxr_linenumber" name="L327" href="#L327">327</a>         }
+<a class="jxr_linenumber" name="L328" href="#L328">328</a>         <strong class="jxr_keyword">if</strong> (randomBoolean()) {
+<a class="jxr_linenumber" name="L329" href="#L329">329</a>             <em class="jxr_comment">// full name claim name is optional</em>
+<a class="jxr_linenumber" name="L330" href="#L330">330</a>             authcSettings.put(
+<a class="jxr_linenumber" name="L331" href="#L331">331</a>                 RealmSettings.getFullSettingKey(authcRealmName, JwtRealmSettings.CLAIMS_NAME.getClaim()),
+<a class="jxr_linenumber" name="L332" href="#L332">332</a>                 authcRealmName + <span class="jxr_string">"_name"</span>
+<a class="jxr_linenumber" name="L333" href="#L333">333</a>             );
+<a class="jxr_linenumber" name="L334" href="#L334">334</a>             <strong class="jxr_keyword">if</strong> (randomBoolean()) {
+<a class="jxr_linenumber" name="L335" href="#L335">335</a>                 <em class="jxr_comment">// if full name claim name is set, name claim pattern is optional</em>
+<a class="jxr_linenumber" name="L336" href="#L336">336</a>                 authcSettings.put(RealmSettings.getFullSettingKey(authcRealmName, JwtRealmSettings.CLAIMS_NAME.getPattern()), <span class="jxr_string">"^(.*)$"</span>);
+<a class="jxr_linenumber" name="L337" href="#L337">337</a>             }
+<a class="jxr_linenumber" name="L338" href="#L338">338</a>         }
+<a class="jxr_linenumber" name="L339" href="#L339">339</a>         <strong class="jxr_keyword">if</strong> (randomBoolean()) {
+<a class="jxr_linenumber" name="L340" href="#L340">340</a>             <em class="jxr_comment">// allow default to be picked, or explicitly set true or false</em>
+<a class="jxr_linenumber" name="L341" href="#L341">341</a>             authcSettings.put(RealmSettings.getFullSettingKey(authcRealmName, JwtRealmSettings.POPULATE_USER_METADATA), randomBoolean());
+<a class="jxr_linenumber" name="L342" href="#L342">342</a>         }
+<a class="jxr_linenumber" name="L343" href="#L343">343</a>         <strong class="jxr_keyword">if</strong> ((authzRealmNames.length != 0) || (randomBoolean())) {
+<a class="jxr_linenumber" name="L344" href="#L344">344</a>             <em class="jxr_comment">// always set non-empty list, otherwise leave it out or optionally set value to an empty list</em>
+<a class="jxr_linenumber" name="L345" href="#L345">345</a>             authcSettings.put(
+<a class="jxr_linenumber" name="L346" href="#L346">346</a>                 RealmSettings.getFullSettingKey(authcRealmName, DelegatedAuthorizationSettings.AUTHZ_REALMS.apply(JwtRealmSettings.TYPE)),
+<a class="jxr_linenumber" name="L347" href="#L347">347</a>                 String.join(<span class="jxr_string">","</span>, authzRealmNames)
+<a class="jxr_linenumber" name="L348" href="#L348">348</a>             );
+<a class="jxr_linenumber" name="L349" href="#L349">349</a>         }
+<a class="jxr_linenumber" name="L350" href="#L350">350</a> 
+<a class="jxr_linenumber" name="L351" href="#L351">351</a>         <em class="jxr_comment">// JWT cache (on/off controlled by jwtCacheSize)</em>
+<a class="jxr_linenumber" name="L352" href="#L352">352</a>         <strong class="jxr_keyword">if</strong> (randomBoolean()) {
+<a class="jxr_linenumber" name="L353" href="#L353">353</a>             authcSettings.put(
+<a class="jxr_linenumber" name="L354" href="#L354">354</a>                 RealmSettings.getFullSettingKey(authcRealmName, JwtRealmSettings.JWT_CACHE_TTL),
+<a class="jxr_linenumber" name="L355" href="#L355">355</a>                 randomIntBetween(10, 120) + randomFrom(<span class="jxr_string">"s"</span>, <span class="jxr_string">"m"</span>, <span class="jxr_string">"h"</span>)
+<a class="jxr_linenumber" name="L356" href="#L356">356</a>             );
+<a class="jxr_linenumber" name="L357" href="#L357">357</a>         }
+<a class="jxr_linenumber" name="L358" href="#L358">358</a>         authcSettings.put(RealmSettings.getFullSettingKey(authcRealmName, JwtRealmSettings.JWT_CACHE_SIZE), jwtCacheSize);
+<a class="jxr_linenumber" name="L359" href="#L359">359</a> 
+<a class="jxr_linenumber" name="L360" href="#L360">360</a>         <em class="jxr_comment">// JWT authc realm secure settings</em>
+<a class="jxr_linenumber" name="L361" href="#L361">361</a>         <strong class="jxr_keyword">final</strong> MockSecureSettings secureSettings = <strong class="jxr_keyword">new</strong> MockSecureSettings();
+<a class="jxr_linenumber" name="L362" href="#L362">362</a>         <strong class="jxr_keyword">if</strong> (jwtIssuer.algAndJwksHmac.isEmpty() == false) {
+<a class="jxr_linenumber" name="L363" href="#L363">363</a>             secureSettings.setString(
+<a class="jxr_linenumber" name="L364" href="#L364">364</a>                 RealmSettings.getFullSettingKey(authcRealmName, JwtRealmSettings.HMAC_JWKSET),
+<a class="jxr_linenumber" name="L365" href="#L365">365</a>                 jwtIssuer.encodedJwkSetHmac
+<a class="jxr_linenumber" name="L366" href="#L366">366</a>             );
+<a class="jxr_linenumber" name="L367" href="#L367">367</a>         }
+<a class="jxr_linenumber" name="L368" href="#L368">368</a>         <strong class="jxr_keyword">if</strong> (jwtIssuer.encodedKeyHmacOidc != <strong class="jxr_keyword">null</strong>) {
+<a class="jxr_linenumber" name="L369" href="#L369">369</a>             secureSettings.setString(
+<a class="jxr_linenumber" name="L370" href="#L370">370</a>                 RealmSettings.getFullSettingKey(authcRealmName, JwtRealmSettings.HMAC_KEY),
+<a class="jxr_linenumber" name="L371" href="#L371">371</a>                 jwtIssuer.encodedKeyHmacOidc
+<a class="jxr_linenumber" name="L372" href="#L372">372</a>             );
+<a class="jxr_linenumber" name="L373" href="#L373">373</a>         }
+<a class="jxr_linenumber" name="L374" href="#L374">374</a>         <strong class="jxr_keyword">if</strong> (clientAuthenticationType.equals(ClientAuthenticationType.SHARED_SECRET)) {
+<a class="jxr_linenumber" name="L375" href="#L375">375</a>             <em class="jxr_comment">// always set if type is "SharedSecret"</em>
+<a class="jxr_linenumber" name="L376" href="#L376">376</a>             <strong class="jxr_keyword">final</strong> String clientAuthenticationSharedSecret = randomAlphaOfLength(64);
+<a class="jxr_linenumber" name="L377" href="#L377">377</a>             secureSettings.setString(
+<a class="jxr_linenumber" name="L378" href="#L378">378</a>                 RealmSettings.getFullSettingKey(authcRealmName, JwtRealmSettings.CLIENT_AUTHENTICATION_SHARED_SECRET),
+<a class="jxr_linenumber" name="L379" href="#L379">379</a>                 clientAuthenticationSharedSecret
+<a class="jxr_linenumber" name="L380" href="#L380">380</a>             );
+<a class="jxr_linenumber" name="L381" href="#L381">381</a>         }
+<a class="jxr_linenumber" name="L382" href="#L382">382</a>         authcSettings.setSecureSettings(secureSettings);
+<a class="jxr_linenumber" name="L383" href="#L383">383</a>         <strong class="jxr_keyword">return</strong> <strong class="jxr_keyword">new</strong> JwtRealmSettingsBuilder(authcRealmName, authcSettings);
+<a class="jxr_linenumber" name="L384" href="#L384">384</a>     }
+<a class="jxr_linenumber" name="L385" href="#L385">385</a> 
+<a class="jxr_linenumber" name="L386" href="#L386">386</a>     <strong class="jxr_keyword">protected</strong> JwtRealm createJwtRealm(
+<a class="jxr_linenumber" name="L387" href="#L387">387</a>         <strong class="jxr_keyword">final</strong> List&lt;Realm&gt; allRealms, <em class="jxr_comment">// JWT realms and authz realms</em>
+<a class="jxr_linenumber" name="L388" href="#L388">388</a>         <strong class="jxr_keyword">final</strong> JwtRealmsService jwtRealmsService,
+<a class="jxr_linenumber" name="L389" href="#L389">389</a>         <strong class="jxr_keyword">final</strong> JwtIssuer jwtIssuer,
+<a class="jxr_linenumber" name="L390" href="#L390">390</a>         <strong class="jxr_keyword">final</strong> JwtRealmSettingsBuilder realmSettingsBuilder
+<a class="jxr_linenumber" name="L391" href="#L391">391</a>     ) {
+<a class="jxr_linenumber" name="L392" href="#L392">392</a>         <strong class="jxr_keyword">final</strong> String authcRealmName = realmSettingsBuilder.name;
+<a class="jxr_linenumber" name="L393" href="#L393">393</a>         <strong class="jxr_keyword">final</strong> Settings settings = realmSettingsBuilder.settingsBuilder.build();
+<a class="jxr_linenumber" name="L394" href="#L394">394</a>         <strong class="jxr_keyword">final</strong> RealmConfig authcConfig = <strong class="jxr_keyword">super</strong>.buildRealmConfig(JwtRealmSettings.TYPE, authcRealmName, settings, (allRealms.size() + 1));
+<a class="jxr_linenumber" name="L395" href="#L395">395</a>         <strong class="jxr_keyword">final</strong> SSLService sslService = <strong class="jxr_keyword">new</strong> SSLService(TestEnvironment.newEnvironment(settings));
+<a class="jxr_linenumber" name="L396" href="#L396">396</a>         <strong class="jxr_keyword">final</strong> List&lt;String&gt; authzRealmNames = settings.getAsList(
+<a class="jxr_linenumber" name="L397" href="#L397">397</a>             RealmSettings.getFullSettingKey(authcRealmName, DelegatedAuthorizationSettings.AUTHZ_REALMS.apply(JwtRealmSettings.TYPE))
+<a class="jxr_linenumber" name="L398" href="#L398">398</a>         );
+<a class="jxr_linenumber" name="L399" href="#L399">399</a>         <strong class="jxr_keyword">final</strong> UserRoleMapper userRoleMapper = <strong class="jxr_keyword">super</strong>.buildRoleMapper(authzRealmNames.isEmpty() ? jwtIssuer.principals : Map.of());
+<a class="jxr_linenumber" name="L400" href="#L400">400</a> 
+<a class="jxr_linenumber" name="L401" href="#L401">401</a>         <em class="jxr_comment">// If authz names is not set, register the users here in the JWT authc realm.</em>
+<a class="jxr_linenumber" name="L402" href="#L402">402</a>         <strong class="jxr_keyword">final</strong> JwtRealm jwtRealm = <strong class="jxr_keyword">new</strong> JwtRealm(authcConfig, jwtRealmsService, sslService, userRoleMapper);
+<a class="jxr_linenumber" name="L403" href="#L403">403</a>         allRealms.add(jwtRealm);
+<a class="jxr_linenumber" name="L404" href="#L404">404</a> 
+<a class="jxr_linenumber" name="L405" href="#L405">405</a>         <em class="jxr_comment">// If authz names is set, register the users here in one of the authz realms.</em>
+<a class="jxr_linenumber" name="L406" href="#L406">406</a>         <strong class="jxr_keyword">if</strong> (authzRealmNames.isEmpty() == false) {
+<a class="jxr_linenumber" name="L407" href="#L407">407</a>             <strong class="jxr_keyword">final</strong> String selected = randomFrom(authzRealmNames);
+<a class="jxr_linenumber" name="L408" href="#L408">408</a>             <strong class="jxr_keyword">for</strong> (<strong class="jxr_keyword">final</strong> String authzRealmName : authzRealmNames) {
+<a class="jxr_linenumber" name="L409" href="#L409">409</a>                 <strong class="jxr_keyword">final</strong> RealmConfig authzConfig = <strong class="jxr_keyword">this</strong>.buildRealmConfig(<span class="jxr_string">"authz"</span>, authzRealmName, Settings.EMPTY, allRealms.size() + 1);
+<a class="jxr_linenumber" name="L410" href="#L410">410</a>                 <strong class="jxr_keyword">final</strong> MockLookupRealm authzRealm = <strong class="jxr_keyword">new</strong> MockLookupRealm(authzConfig);
+<a class="jxr_linenumber" name="L411" href="#L411">411</a>                 <strong class="jxr_keyword">if</strong> (authzRealmName.equals(selected)) {
+<a class="jxr_linenumber" name="L412" href="#L412">412</a>                     jwtIssuer.principals.values().forEach(authzRealm::registerUser);
+<a class="jxr_linenumber" name="L413" href="#L413">413</a>                 }
+<a class="jxr_linenumber" name="L414" href="#L414">414</a>                 allRealms.add(authzRealm);
+<a class="jxr_linenumber" name="L415" href="#L415">415</a>             }
+<a class="jxr_linenumber" name="L416" href="#L416">416</a>         }
+<a class="jxr_linenumber" name="L417" href="#L417">417</a>         <strong class="jxr_keyword">return</strong> jwtRealm;
+<a class="jxr_linenumber" name="L418" href="#L418">418</a>     }
+<a class="jxr_linenumber" name="L419" href="#L419">419</a> 
+<a class="jxr_linenumber" name="L420" href="#L420">420</a>     <strong class="jxr_keyword">protected</strong> JwtIssuerAndRealm randomJwtIssuerRealmPair() <strong class="jxr_keyword">throws</strong> ParseException {
+<a class="jxr_linenumber" name="L421" href="#L421">421</a>         <em class="jxr_comment">// Select random JWT issuer and JWT realm pair, and log the realm settings</em>
+<a class="jxr_linenumber" name="L422" href="#L422">422</a>         assertThat(<strong class="jxr_keyword">this</strong>.jwtIssuerAndRealms, is(notNullValue()));
+<a class="jxr_linenumber" name="L423" href="#L423">423</a>         assertThat(<strong class="jxr_keyword">this</strong>.jwtIssuerAndRealms, is(not(empty())));
+<a class="jxr_linenumber" name="L424" href="#L424">424</a>         <strong class="jxr_keyword">final</strong> JwtIssuerAndRealm jwtIssuerAndRealm = randomFrom(<strong class="jxr_keyword">this</strong>.jwtIssuerAndRealms);
+<a class="jxr_linenumber" name="L425" href="#L425">425</a>         <strong class="jxr_keyword">final</strong> JwtRealm jwtRealm = jwtIssuerAndRealm.realm;
+<a class="jxr_linenumber" name="L426" href="#L426">426</a>         assertThat(jwtRealm, is(notNullValue()));
+<a class="jxr_linenumber" name="L427" href="#L427">427</a>         assertThat(jwtRealm.allowedIssuer, is(equalTo(jwtIssuerAndRealm.issuer.issuerClaimValue))); <em class="jxr_comment">// assert equal, don't print both</em>
+<a class="jxr_linenumber" name="L428" href="#L428">428</a>         assertThat(jwtIssuerAndRealm.issuer.audiencesClaimValue.stream().anyMatch(jwtRealm.allowedAudiences::contains), is(<strong class="jxr_keyword">true</strong>));
+<a class="jxr_linenumber" name="L429" href="#L429">429</a>         <strong class="jxr_keyword">this</strong>.printJwtRealmAndIssuer(jwtIssuerAndRealm);
+<a class="jxr_linenumber" name="L430" href="#L430">430</a>         <strong class="jxr_keyword">return</strong> jwtIssuerAndRealm;
+<a class="jxr_linenumber" name="L431" href="#L431">431</a>     }
+<a class="jxr_linenumber" name="L432" href="#L432">432</a> 
+<a class="jxr_linenumber" name="L433" href="#L433">433</a>     <strong class="jxr_keyword">protected</strong> <strong class="jxr_keyword">void</strong> doMultipleAuthcAuthzAndVerifySuccess(
+<a class="jxr_linenumber" name="L434" href="#L434">434</a>         <strong class="jxr_keyword">final</strong> JwtRealm jwtRealm,
+<a class="jxr_linenumber" name="L435" href="#L435">435</a>         <strong class="jxr_keyword">final</strong> User user,
+<a class="jxr_linenumber" name="L436" href="#L436">436</a>         <strong class="jxr_keyword">final</strong> SecureString jwt,
+<a class="jxr_linenumber" name="L437" href="#L437">437</a>         <strong class="jxr_keyword">final</strong> SecureString sharedSecret,
+<a class="jxr_linenumber" name="L438" href="#L438">438</a>         <strong class="jxr_keyword">final</strong> MinMax jwtAuthcRange
+<a class="jxr_linenumber" name="L439" href="#L439">439</a>     ) <strong class="jxr_keyword">throws</strong> Exception {
+<a class="jxr_linenumber" name="L440" href="#L440">440</a>         assertThat(jwtAuthcRange.min(), is(greaterThanOrEqualTo(1)));
+<a class="jxr_linenumber" name="L441" href="#L441">441</a> 
+<a class="jxr_linenumber" name="L442" href="#L442">442</a>         <em class="jxr_comment">// Select one JWT authc Issuer/Realm pair. Select one test user, to use inside the authc test loop.</em>
+<a class="jxr_linenumber" name="L443" href="#L443">443</a>         <strong class="jxr_keyword">final</strong> List&lt;JwtRealm&gt; jwtRealmsList = <strong class="jxr_keyword">this</strong>.jwtIssuerAndRealms.stream().map(p -&gt; p.realm).toList();
+<a class="jxr_linenumber" name="L444" href="#L444">444</a> 
+<a class="jxr_linenumber" name="L445" href="#L445">445</a>         <em class="jxr_comment">// Select different test JWKs from the JWT realm, and generate test JWTs for the test user. Run the JWT through the chain.</em>
+<a class="jxr_linenumber" name="L446" href="#L446">446</a>         <strong class="jxr_keyword">final</strong> <strong class="jxr_keyword">int</strong> jwtAuthcRepeats = randomIntBetween(jwtAuthcRange.min(), jwtAuthcRange.max());
+<a class="jxr_linenumber" name="L447" href="#L447">447</a>         <strong class="jxr_keyword">for</strong> (<strong class="jxr_keyword">int</strong> authcRun = 1; authcRun &lt;= jwtAuthcRepeats; authcRun++) {
+<a class="jxr_linenumber" name="L448" href="#L448">448</a>             <em class="jxr_comment">// Create request with headers set</em>
+<a class="jxr_linenumber" name="L449" href="#L449">449</a>             <strong class="jxr_keyword">final</strong> ThreadContext requestThreadContext = <strong class="jxr_keyword">super</strong>.createThreadContext(jwt, sharedSecret);
+<a class="jxr_linenumber" name="L450" href="#L450">450</a>             LOGGER.info(<span class="jxr_string">"REQ["</span> + authcRun + <span class="jxr_string">"/"</span> + jwtAuthcRepeats + <span class="jxr_string">"] HEADERS="</span> + requestThreadContext.getHeaders());
+<a class="jxr_linenumber" name="L451" href="#L451">451</a> 
+<a class="jxr_linenumber" name="L452" href="#L452">452</a>             <em class="jxr_comment">// Loop through all authc/authz realms. Confirm a JWT authc realm recognizes and extracts the request headers.</em>
+<a class="jxr_linenumber" name="L453" href="#L453">453</a>             JwtAuthenticationToken jwtAuthenticationToken = <strong class="jxr_keyword">null</strong>;
+<a class="jxr_linenumber" name="L454" href="#L454">454</a>             <strong class="jxr_keyword">for</strong> (<strong class="jxr_keyword">final</strong> JwtRealm candidateJwtRealm : jwtRealmsList) {
+<a class="jxr_linenumber" name="L455" href="#L455">455</a>                 <strong class="jxr_keyword">final</strong> AuthenticationToken authenticationToken = candidateJwtRealm.token(requestThreadContext);
+<a class="jxr_linenumber" name="L456" href="#L456">456</a>                 <strong class="jxr_keyword">if</strong> (authenticationToken != <strong class="jxr_keyword">null</strong>) {
+<a class="jxr_linenumber" name="L457" href="#L457">457</a>                     assertThat(authenticationToken, isA(JwtAuthenticationToken.<strong class="jxr_keyword">class</strong>));
+<a class="jxr_linenumber" name="L458" href="#L458">458</a>                     jwtAuthenticationToken = (JwtAuthenticationToken) authenticationToken;
+<a class="jxr_linenumber" name="L459" href="#L459">459</a>                     <strong class="jxr_keyword">break</strong>;
+<a class="jxr_linenumber" name="L460" href="#L460">460</a>                 }
+<a class="jxr_linenumber" name="L461" href="#L461">461</a>             }
+<a class="jxr_linenumber" name="L462" href="#L462">462</a>             assertThat(jwtAuthenticationToken, is(notNullValue()));
+<a class="jxr_linenumber" name="L463" href="#L463">463</a>             <strong class="jxr_keyword">final</strong> String tokenPrincipal = jwtAuthenticationToken.principal();
+<a class="jxr_linenumber" name="L464" href="#L464">464</a>             <strong class="jxr_keyword">final</strong> SecureString tokenJwt = jwtAuthenticationToken.getEndUserSignedJwt();
+<a class="jxr_linenumber" name="L465" href="#L465">465</a>             <strong class="jxr_keyword">final</strong> SecureString tokenSecret = jwtAuthenticationToken.getClientAuthenticationSharedSecret();
+<a class="jxr_linenumber" name="L466" href="#L466">466</a>             assertThat(tokenPrincipal, is(notNullValue()));
+<a class="jxr_linenumber" name="L467" href="#L467">467</a>             <strong class="jxr_keyword">if</strong> (tokenJwt.equals(jwt) == false) {
+<a class="jxr_linenumber" name="L468" href="#L468">468</a>                 assertThat(tokenJwt, is(equalTo(jwt)));
+<a class="jxr_linenumber" name="L469" href="#L469">469</a>             }
+<a class="jxr_linenumber" name="L470" href="#L470">470</a>             assertThat(tokenJwt, is(equalTo(jwt)));
+<a class="jxr_linenumber" name="L471" href="#L471">471</a>             <strong class="jxr_keyword">if</strong> (tokenSecret != <strong class="jxr_keyword">null</strong>) {
+<a class="jxr_linenumber" name="L472" href="#L472">472</a>                 <strong class="jxr_keyword">if</strong> (tokenSecret.equals(sharedSecret) == false) {
+<a class="jxr_linenumber" name="L473" href="#L473">473</a>                     assertThat(tokenSecret, is(equalTo(sharedSecret)));
+<a class="jxr_linenumber" name="L474" href="#L474">474</a>                 }
+<a class="jxr_linenumber" name="L475" href="#L475">475</a>                 assertThat(tokenSecret, is(equalTo(sharedSecret)));
+<a class="jxr_linenumber" name="L476" href="#L476">476</a>             }
+<a class="jxr_linenumber" name="L477" href="#L477">477</a>             LOGGER.info(<span class="jxr_string">"GOT TOKEN: principal=["</span> + tokenPrincipal + <span class="jxr_string">"], jwt=["</span> + tokenJwt + <span class="jxr_string">"], secret=["</span> + tokenSecret + <span class="jxr_string">"]."</span>);
+<a class="jxr_linenumber" name="L478" href="#L478">478</a> 
+<a class="jxr_linenumber" name="L479" href="#L479">479</a>             <em class="jxr_comment">// Loop through all authc/authz realms. Confirm user is returned with expected principal and roles.</em>
+<a class="jxr_linenumber" name="L480" href="#L480">480</a>             User authenticatedUser = <strong class="jxr_keyword">null</strong>;
+<a class="jxr_linenumber" name="L481" href="#L481">481</a>             <strong class="jxr_keyword">final</strong> List&lt;String&gt; realmAuthenticationResults = <strong class="jxr_keyword">new</strong> ArrayList&lt;&gt;();
+<a class="jxr_linenumber" name="L482" href="#L482">482</a>             <strong class="jxr_keyword">final</strong> List&lt;String&gt; realmUsageStats = <strong class="jxr_keyword">new</strong> ArrayList&lt;&gt;();
+<a class="jxr_linenumber" name="L483" href="#L483">483</a>             <strong class="jxr_keyword">final</strong> List&lt;Exception&gt; realmFailureExceptions = <strong class="jxr_keyword">new</strong> ArrayList&lt;&gt;(jwtRealmsList.size());
+<a class="jxr_linenumber" name="L484" href="#L484">484</a>             <strong class="jxr_keyword">try</strong> {
+<a class="jxr_linenumber" name="L485" href="#L485">485</a>                 <strong class="jxr_keyword">for</strong> (<strong class="jxr_keyword">final</strong> JwtRealm candidateJwtRealm : jwtRealmsList) {
+<a class="jxr_linenumber" name="L486" href="#L486">486</a>                     LOGGER.info(<span class="jxr_string">"TRY AUTHC: expected=["</span> + jwtRealm.name() + <span class="jxr_string">"], candidate["</span> + candidateJwtRealm.name() + <span class="jxr_string">"]."</span>);
+<a class="jxr_linenumber" name="L487" href="#L487">487</a>                     <strong class="jxr_keyword">final</strong> PlainActionFuture&lt;AuthenticationResult&lt;User&gt;&gt; authenticateFuture = PlainActionFuture.newFuture();
+<a class="jxr_linenumber" name="L488" href="#L488">488</a>                     <strong class="jxr_keyword">try</strong> {
+<a class="jxr_linenumber" name="L489" href="#L489">489</a>                         candidateJwtRealm.authenticate(jwtAuthenticationToken, authenticateFuture);
+<a class="jxr_linenumber" name="L490" href="#L490">490</a>                         <strong class="jxr_keyword">final</strong> AuthenticationResult&lt;User&gt; authenticationResult = authenticateFuture.actionGet();
+<a class="jxr_linenumber" name="L491" href="#L491">491</a>                         LOGGER.info(<span class="jxr_string">"Authentication result with realm [{}]: [{}]"</span>, candidateJwtRealm.name(), authenticationResult);
+<a class="jxr_linenumber" name="L492" href="#L492">492</a>                         <strong class="jxr_keyword">final</strong> Exception authenticationResultException = authenticationResult.getException();
+<a class="jxr_linenumber" name="L493" href="#L493">493</a>                         <strong class="jxr_keyword">final</strong> String realmResult = <span class="jxr_string">"  realms=["</span>
+<a class="jxr_linenumber" name="L494" href="#L494">494</a>                             + jwtRealmsList.size()
+<a class="jxr_linenumber" name="L495" href="#L495">495</a>                             + <span class="jxr_string">"], expected=["</span>
+<a class="jxr_linenumber" name="L496" href="#L496">496</a>                             + jwtRealm.name()
+<a class="jxr_linenumber" name="L497" href="#L497">497</a>                             + <span class="jxr_string">","</span>
+<a class="jxr_linenumber" name="L498" href="#L498">498</a>                             + jwtRealm.order()
+<a class="jxr_linenumber" name="L499" href="#L499">499</a>                             + <span class="jxr_string">"], current["</span>
+<a class="jxr_linenumber" name="L500" href="#L500">500</a>                             + candidateJwtRealm.name()
+<a class="jxr_linenumber" name="L501" href="#L501">501</a>                             + <span class="jxr_string">","</span>
+<a class="jxr_linenumber" name="L502" href="#L502">502</a>                             + candidateJwtRealm.order()
+<a class="jxr_linenumber" name="L503" href="#L503">503</a>                             + <span class="jxr_string">"], status=["</span>
+<a class="jxr_linenumber" name="L504" href="#L504">504</a>                             + authenticationResult.getStatus()
+<a class="jxr_linenumber" name="L505" href="#L505">505</a>                             + <span class="jxr_string">"], authenticated=["</span>
+<a class="jxr_linenumber" name="L506" href="#L506">506</a>                             + authenticationResult.isAuthenticated()
+<a class="jxr_linenumber" name="L507" href="#L507">507</a>                             + <span class="jxr_string">"], msg=["</span>
+<a class="jxr_linenumber" name="L508" href="#L508">508</a>                             + authenticationResult.getMessage()
+<a class="jxr_linenumber" name="L509" href="#L509">509</a>                             + <span class="jxr_string">"], meta=["</span>
+<a class="jxr_linenumber" name="L510" href="#L510">510</a>                             + authenticationResult.getMetadata()
+<a class="jxr_linenumber" name="L511" href="#L511">511</a>                             + <span class="jxr_string">"], user=["</span>
+<a class="jxr_linenumber" name="L512" href="#L512">512</a>                             + authenticationResult.getValue()
+<a class="jxr_linenumber" name="L513" href="#L513">513</a>                             + <span class="jxr_string">"]."</span>;
+<a class="jxr_linenumber" name="L514" href="#L514">514</a>                         realmAuthenticationResults.add(realmResult);
+<a class="jxr_linenumber" name="L515" href="#L515">515</a>                         realmFailureExceptions.add(<strong class="jxr_keyword">new</strong> Exception(realmResult, authenticationResultException));
+<a class="jxr_linenumber" name="L516" href="#L516">516</a>                         <strong class="jxr_keyword">switch</strong> (authenticationResult.getStatus()) {
+<a class="jxr_linenumber" name="L517" href="#L517">517</a>                             <strong class="jxr_keyword">case</strong> SUCCESS:
+<a class="jxr_linenumber" name="L518" href="#L518">518</a>                                 assertThat(<span class="jxr_string">"Unexpected realm SUCCESS status"</span>, candidateJwtRealm.name(), is(equalTo(jwtRealm.name())));
+<a class="jxr_linenumber" name="L519" href="#L519">519</a>                                 assertThat(<span class="jxr_string">"Expected realm authc false"</span>, authenticationResult.isAuthenticated(), is(equalTo(<strong class="jxr_keyword">true</strong>)));
+<a class="jxr_linenumber" name="L520" href="#L520">520</a>                                 assertThat(<span class="jxr_string">"Expected realm exception thrown"</span>, authenticationResult.getException(), is(nullValue()));
+<a class="jxr_linenumber" name="L521" href="#L521">521</a>                                 assertThat(<span class="jxr_string">"Expected realm message null"</span>, authenticationResult.getMessage(), is(nullValue()));
+<a class="jxr_linenumber" name="L522" href="#L522">522</a>                                 assertThat(<span class="jxr_string">"Expected realm metadata empty"</span>, authenticationResult.getMetadata(), is(anEmptyMap()));
+<a class="jxr_linenumber" name="L523" href="#L523">523</a>                                 authenticatedUser = authenticationResult.getValue();
+<a class="jxr_linenumber" name="L524" href="#L524">524</a>                                 assertThat(<span class="jxr_string">"Expected realm user null"</span>, authenticatedUser, is(notNullValue()));
+<a class="jxr_linenumber" name="L525" href="#L525">525</a>                                 <strong class="jxr_keyword">break</strong>;
+<a class="jxr_linenumber" name="L526" href="#L526">526</a>                             <strong class="jxr_keyword">case</strong> CONTINUE:
+<a class="jxr_linenumber" name="L527" href="#L527">527</a>                                 assertThat(<span class="jxr_string">"Expected realm CONTINUE status"</span>, candidateJwtRealm.name(), is(not(equalTo(jwtRealm.name()))));
+<a class="jxr_linenumber" name="L528" href="#L528">528</a>                                 assertThat(<span class="jxr_string">"Unexpected realm authc success"</span>, authenticationResult.isAuthenticated(), is(equalTo(false)));
+<a class="jxr_linenumber" name="L529" href="#L529">529</a>                                 <strong class="jxr_keyword">continue</strong>;
+<a class="jxr_linenumber" name="L530" href="#L530">530</a>                             <strong class="jxr_keyword">case</strong> TERMINATE:
+<a class="jxr_linenumber" name="L531" href="#L531">531</a>                                 assertThat(<span class="jxr_string">"Expected realm TERMINATE status"</span>, candidateJwtRealm.name(), is(not(equalTo(jwtRealm.name()))));
+<a class="jxr_linenumber" name="L532" href="#L532">532</a>                                 assertThat(<span class="jxr_string">"Unexpected realm authc success"</span>, authenticationResult.isAuthenticated(), is(equalTo(false)));
+<a class="jxr_linenumber" name="L533" href="#L533">533</a>                                 <strong class="jxr_keyword">break</strong>;
+<a class="jxr_linenumber" name="L534" href="#L534">534</a>                             <strong class="jxr_keyword">default</strong>:
+<a class="jxr_linenumber" name="L535" href="#L535">535</a>                                 fail(<span class="jxr_string">"Unexpected AuthenticationResult.Status=["</span> + authenticationResult.getStatus() + <span class="jxr_string">"]"</span>);
+<a class="jxr_linenumber" name="L536" href="#L536">536</a>                                 <strong class="jxr_keyword">break</strong>;
+<a class="jxr_linenumber" name="L537" href="#L537">537</a>                         }
+<a class="jxr_linenumber" name="L538" href="#L538">538</a>                         <strong class="jxr_keyword">break</strong>; <em class="jxr_comment">// Only SUCCESS falls through to here, break out of the loop</em>
+<a class="jxr_linenumber" name="L539" href="#L539">539</a>                     } <strong class="jxr_keyword">catch</strong> (Exception e) {
+<a class="jxr_linenumber" name="L540" href="#L540">540</a>                         realmFailureExceptions.add(e);
+<a class="jxr_linenumber" name="L541" href="#L541">541</a>                         <strong class="jxr_keyword">throw</strong> e;
+<a class="jxr_linenumber" name="L542" href="#L542">542</a>                     } <strong class="jxr_keyword">finally</strong> {
+<a class="jxr_linenumber" name="L543" href="#L543">543</a>                         <strong class="jxr_keyword">final</strong> PlainActionFuture&lt;Map&lt;String, Object&gt;&gt; usageStatsFuture = PlainActionFuture.newFuture();
+<a class="jxr_linenumber" name="L544" href="#L544">544</a>                         candidateJwtRealm.usageStats(usageStatsFuture);
+<a class="jxr_linenumber" name="L545" href="#L545">545</a>                         realmUsageStats.add(
+<a class="jxr_linenumber" name="L546" href="#L546">546</a>                             <span class="jxr_string">"   realm["</span>
+<a class="jxr_linenumber" name="L547" href="#L547">547</a>                                 + candidateJwtRealm.name()
+<a class="jxr_linenumber" name="L548" href="#L548">548</a>                                 + <span class="jxr_string">","</span>
+<a class="jxr_linenumber" name="L549" href="#L549">549</a>                                 + candidateJwtRealm.order()
+<a class="jxr_linenumber" name="L550" href="#L550">550</a>                                 + <span class="jxr_string">"/"</span>
+<a class="jxr_linenumber" name="L551" href="#L551">551</a>                                 + jwtRealmsList.size()
+<a class="jxr_linenumber" name="L552" href="#L552">552</a>                                 + <span class="jxr_string">"], stats=["</span>
+<a class="jxr_linenumber" name="L553" href="#L553">553</a>                                 + usageStatsFuture.actionGet()
+<a class="jxr_linenumber" name="L554" href="#L554">554</a>                                 + <span class="jxr_string">"]"</span>
+<a class="jxr_linenumber" name="L555" href="#L555">555</a>                         );
+<a class="jxr_linenumber" name="L556" href="#L556">556</a>                     }
+<a class="jxr_linenumber" name="L557" href="#L557">557</a>                 }
+<a class="jxr_linenumber" name="L558" href="#L558">558</a>                 <em class="jxr_comment">// Loop ended. Confirm user is returned with expected principal and roles.</em>
+<a class="jxr_linenumber" name="L559" href="#L559">559</a>                 assertThat(<span class="jxr_string">"Expected realm "</span> + jwtRealm.name() + <span class="jxr_string">" to authenticate."</span>, authenticatedUser, is(notNullValue()));
+<a class="jxr_linenumber" name="L560" href="#L560">560</a>                 assertThat(user.principal(), equalTo(authenticatedUser.principal()));
+<a class="jxr_linenumber" name="L561" href="#L561">561</a>                 assertThat(<strong class="jxr_keyword">new</strong> TreeSet&lt;&gt;(Arrays.asList(user.roles())), equalTo(<strong class="jxr_keyword">new</strong> TreeSet&lt;&gt;(Arrays.asList(authenticatedUser.roles()))));
+<a class="jxr_linenumber" name="L562" href="#L562">562</a>                 <strong class="jxr_keyword">if</strong> (jwtRealm.delegatedAuthorizationSupport.hasDelegation()) {
+<a class="jxr_linenumber" name="L563" href="#L563">563</a>                     assertThat(user.metadata(), is(equalTo(authenticatedUser.metadata()))); <em class="jxr_comment">// delegated authz returns user's metadata</em>
+<a class="jxr_linenumber" name="L564" href="#L564">564</a>                 } <strong class="jxr_keyword">else</strong> <strong class="jxr_keyword">if</strong> (jwtRealm.populateUserMetadata) {
+<a class="jxr_linenumber" name="L565" href="#L565">565</a>                     assertThat(authenticatedUser.metadata(), is(not(anEmptyMap()))); <em class="jxr_comment">// role mapping with flag true returns non-empty</em>
+<a class="jxr_linenumber" name="L566" href="#L566">566</a>                 } <strong class="jxr_keyword">else</strong> {
+<a class="jxr_linenumber" name="L567" href="#L567">567</a>                     assertThat(authenticatedUser.metadata(), is(anEmptyMap())); <em class="jxr_comment">// role mapping with flag false returns empty</em>
+<a class="jxr_linenumber" name="L568" href="#L568">568</a>                 }
+<a class="jxr_linenumber" name="L569" href="#L569">569</a>             } <strong class="jxr_keyword">catch</strong> (Throwable t) {
+<a class="jxr_linenumber" name="L570" href="#L570">570</a>                 realmFailureExceptions.forEach(t::addSuppressed); <em class="jxr_comment">// all previous realm exceptions</em>
+<a class="jxr_linenumber" name="L571" href="#L571">571</a>                 <em class="jxr_comment">// LOGGER.error("Unexpected exception.", t);</em>
+<a class="jxr_linenumber" name="L572" href="#L572">572</a>                 <strong class="jxr_keyword">throw</strong> t;
+<a class="jxr_linenumber" name="L573" href="#L573">573</a>             } <strong class="jxr_keyword">finally</strong> {
+<a class="jxr_linenumber" name="L574" href="#L574">574</a>                 LOGGER.info(<span class="jxr_string">"STATS: expected=["</span> + jwtRealm.name() + <span class="jxr_string">"]\n"</span> + String.join(<span class="jxr_string">"\n"</span>, realmUsageStats));
+<a class="jxr_linenumber" name="L575" href="#L575">575</a>                 <strong class="jxr_keyword">if</strong> (authenticatedUser != <strong class="jxr_keyword">null</strong>) {
+<a class="jxr_linenumber" name="L576" href="#L576">576</a>                     LOGGER.info(<span class="jxr_string">"RESULT: expected=["</span> + jwtRealm.name() + <span class="jxr_string">"]\n"</span> + String.join(<span class="jxr_string">"\n"</span>, realmAuthenticationResults));
+<a class="jxr_linenumber" name="L577" href="#L577">577</a>                 }
+<a class="jxr_linenumber" name="L578" href="#L578">578</a>             }
+<a class="jxr_linenumber" name="L579" href="#L579">579</a>         }
+<a class="jxr_linenumber" name="L580" href="#L580">580</a>         LOGGER.info(<span class="jxr_string">"Test succeeded"</span>);
+<a class="jxr_linenumber" name="L581" href="#L581">581</a>     }
+<a class="jxr_linenumber" name="L582" href="#L582">582</a> 
+<a class="jxr_linenumber" name="L583" href="#L583">583</a>     <strong class="jxr_keyword">protected</strong> User randomUser(<strong class="jxr_keyword">final</strong> JwtIssuer jwtIssuer) {
+<a class="jxr_linenumber" name="L584" href="#L584">584</a>         <strong class="jxr_keyword">final</strong> User user = randomFrom(jwtIssuer.principals.values());
+<a class="jxr_linenumber" name="L585" href="#L585">585</a>         LOGGER.info(<span class="jxr_string">"USER["</span> + user.principal() + <span class="jxr_string">"]: roles=["</span> + String.join(<span class="jxr_string">","</span>, user.roles()) + <span class="jxr_string">"]."</span>);
+<a class="jxr_linenumber" name="L586" href="#L586">586</a>         <strong class="jxr_keyword">return</strong> user;
+<a class="jxr_linenumber" name="L587" href="#L587">587</a>     }
+<a class="jxr_linenumber" name="L588" href="#L588">588</a> 
+<a class="jxr_linenumber" name="L589" href="#L589">589</a>     <strong class="jxr_keyword">protected</strong> SecureString randomJwt(<strong class="jxr_keyword">final</strong> JwtIssuerAndRealm jwtIssuerAndRealm, User user) <strong class="jxr_keyword">throws</strong> Exception {
+<a class="jxr_linenumber" name="L590" href="#L590">590</a>         <strong class="jxr_keyword">final</strong> JwtIssuer.AlgJwkPair algJwkPair = randomFrom(jwtIssuerAndRealm.issuer.algAndJwksAll);
+<a class="jxr_linenumber" name="L591" href="#L591">591</a>         <strong class="jxr_keyword">final</strong> JWK jwk = algJwkPair.jwk();
+<a class="jxr_linenumber" name="L592" href="#L592">592</a>         LOGGER.info(
+<a class="jxr_linenumber" name="L593" href="#L593">593</a>             <span class="jxr_string">"ALG["</span>
+<a class="jxr_linenumber" name="L594" href="#L594">594</a>                 + algJwkPair.alg()
+<a class="jxr_linenumber" name="L595" href="#L595">595</a>                 + <span class="jxr_string">"]. JWK: kty=["</span>
+<a class="jxr_linenumber" name="L596" href="#L596">596</a>                 + jwk.getKeyType()
+<a class="jxr_linenumber" name="L597" href="#L597">597</a>                 + <span class="jxr_string">"], len=["</span>
+<a class="jxr_linenumber" name="L598" href="#L598">598</a>                 + jwk.size()
+<a class="jxr_linenumber" name="L599" href="#L599">599</a>                 + <span class="jxr_string">"], alg=["</span>
+<a class="jxr_linenumber" name="L600" href="#L600">600</a>                 + jwk.getAlgorithm()
+<a class="jxr_linenumber" name="L601" href="#L601">601</a>                 + <span class="jxr_string">"], use=["</span>
+<a class="jxr_linenumber" name="L602" href="#L602">602</a>                 + jwk.getKeyUse()
+<a class="jxr_linenumber" name="L603" href="#L603">603</a>                 + <span class="jxr_string">"], ops=["</span>
+<a class="jxr_linenumber" name="L604" href="#L604">604</a>                 + jwk.getKeyOperations()
+<a class="jxr_linenumber" name="L605" href="#L605">605</a>                 + <span class="jxr_string">"], kid=["</span>
+<a class="jxr_linenumber" name="L606" href="#L606">606</a>                 + jwk.getKeyID()
+<a class="jxr_linenumber" name="L607" href="#L607">607</a>                 + <span class="jxr_string">"]."</span>
+<a class="jxr_linenumber" name="L608" href="#L608">608</a>         );
+<a class="jxr_linenumber" name="L609" href="#L609">609</a> 
+<a class="jxr_linenumber" name="L610" href="#L610">610</a>         <strong class="jxr_keyword">final</strong> Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+<a class="jxr_linenumber" name="L611" href="#L611">611</a>         <strong class="jxr_keyword">final</strong> SignedJWT unsignedJwt = JwtTestCase.buildUnsignedJwt(
+<a class="jxr_linenumber" name="L612" href="#L612">612</a>             randomBoolean() ? <strong class="jxr_keyword">null</strong> : JOSEObjectType.JWT.toString(), <em class="jxr_comment">// kty</em>
+<a class="jxr_linenumber" name="L613" href="#L613">613</a>             randomBoolean() ? <strong class="jxr_keyword">null</strong> : jwk.getKeyID(), <em class="jxr_comment">// kid</em>
+<a class="jxr_linenumber" name="L614" href="#L614">614</a>             algJwkPair.alg(), <em class="jxr_comment">// alg</em>
+<a class="jxr_linenumber" name="L615" href="#L615">615</a>             randomAlphaOfLengthBetween(10, 20), <em class="jxr_comment">// jwtID</em>
+<a class="jxr_linenumber" name="L616" href="#L616">616</a>             jwtIssuerAndRealm.realm.allowedIssuer, <em class="jxr_comment">// iss</em>
+<a class="jxr_linenumber" name="L617" href="#L617">617</a>             jwtIssuerAndRealm.realm.allowedAudiences, <em class="jxr_comment">// aud</em>
+<a class="jxr_linenumber" name="L618" href="#L618">618</a>             randomBoolean() ? <strong class="jxr_keyword">null</strong> : randomBoolean() ? user.principal() : user.principal() + <span class="jxr_string">"_"</span> + randomInt(9), <em class="jxr_comment">// sub claim value</em>
+<a class="jxr_linenumber" name="L619" href="#L619">619</a>             jwtIssuerAndRealm.realm.claimParserPrincipal.getClaimName(), <em class="jxr_comment">// principal claim name</em>
+<a class="jxr_linenumber" name="L620" href="#L620">620</a>             user.principal(), <em class="jxr_comment">// principal claim value</em>
+<a class="jxr_linenumber" name="L621" href="#L621">621</a>             jwtIssuerAndRealm.realm.claimParserGroups.getClaimName(), <em class="jxr_comment">// group claim name</em>
+<a class="jxr_linenumber" name="L622" href="#L622">622</a>             List.of(user.roles()), <em class="jxr_comment">// group claim value</em>
+<a class="jxr_linenumber" name="L623" href="#L623">623</a>             Date.from(now.minusSeconds(60 * randomLongBetween(10, 20))), <em class="jxr_comment">// auth_time</em>
+<a class="jxr_linenumber" name="L624" href="#L624">624</a>             Date.from(now.minusSeconds(randomBoolean() ? 0 : 60 * randomLongBetween(5, 10))), <em class="jxr_comment">// iat</em>
+<a class="jxr_linenumber" name="L625" href="#L625">625</a>             Date.from(now), <em class="jxr_comment">// nbf</em>
+<a class="jxr_linenumber" name="L626" href="#L626">626</a>             Date.from(now.plusSeconds(60 * randomLongBetween(3600, 7200))), <em class="jxr_comment">// exp</em>
+<a class="jxr_linenumber" name="L627" href="#L627">627</a>             randomBoolean() ? <strong class="jxr_keyword">null</strong> : <strong class="jxr_keyword">new</strong> Nonce(32).toString(),
+<a class="jxr_linenumber" name="L628" href="#L628">628</a>             randomBoolean() ? <strong class="jxr_keyword">null</strong> : Map.of(<span class="jxr_string">"other1"</span>, randomAlphaOfLength(10), <span class="jxr_string">"other2"</span>, randomAlphaOfLength(10))
+<a class="jxr_linenumber" name="L629" href="#L629">629</a>         );
+<a class="jxr_linenumber" name="L630" href="#L630">630</a>         <strong class="jxr_keyword">final</strong> SecureString signedJWT = JwtValidateUtil.signJwt(jwk, unsignedJwt);
+<a class="jxr_linenumber" name="L631" href="#L631">631</a>         assertThat(JwtValidateUtil.verifyJwt(jwk, SignedJWT.parse(signedJWT.toString())), is(equalTo(<strong class="jxr_keyword">true</strong>)));
+<a class="jxr_linenumber" name="L632" href="#L632">632</a>         <strong class="jxr_keyword">return</strong> signedJWT;
+<a class="jxr_linenumber" name="L633" href="#L633">633</a>     }
+<a class="jxr_linenumber" name="L634" href="#L634">634</a> 
+<a class="jxr_linenumber" name="L635" href="#L635">635</a>     <strong class="jxr_keyword">protected</strong> <strong class="jxr_keyword">void</strong> printJwtRealmAndIssuer(JwtIssuerAndRealm jwtIssuerAndRealm) <strong class="jxr_keyword">throws</strong> ParseException {
+<a class="jxr_linenumber" name="L636" href="#L636">636</a>         <strong class="jxr_keyword">this</strong>.printJwtIssuer(jwtIssuerAndRealm.issuer());
+<a class="jxr_linenumber" name="L637" href="#L637">637</a>         <strong class="jxr_keyword">this</strong>.printJwtRealm(jwtIssuerAndRealm.realm());
+<a class="jxr_linenumber" name="L638" href="#L638">638</a>     }
+<a class="jxr_linenumber" name="L639" href="#L639">639</a> 
+<a class="jxr_linenumber" name="L640" href="#L640">640</a>     <strong class="jxr_keyword">protected</strong> <strong class="jxr_keyword">void</strong> printJwtRealm(<strong class="jxr_keyword">final</strong> JwtRealm jwtRealm) {
+<a class="jxr_linenumber" name="L641" href="#L641">641</a>         LOGGER.info(
+<a class="jxr_linenumber" name="L642" href="#L642">642</a>             <span class="jxr_string">"REALM["</span>
+<a class="jxr_linenumber" name="L643" href="#L643">643</a>                 + jwtRealm.name()
+<a class="jxr_linenumber" name="L644" href="#L644">644</a>                 + <span class="jxr_string">","</span>
+<a class="jxr_linenumber" name="L645" href="#L645">645</a>                 + jwtRealm.order()
+<a class="jxr_linenumber" name="L646" href="#L646">646</a>                 + <span class="jxr_string">"/"</span>
+<a class="jxr_linenumber" name="L647" href="#L647">647</a>                 + <strong class="jxr_keyword">this</strong>.jwtIssuerAndRealms.size()
+<a class="jxr_linenumber" name="L648" href="#L648">648</a>                 + <span class="jxr_string">"]: clientType=["</span>
+<a class="jxr_linenumber" name="L649" href="#L649">649</a>                 + jwtRealm.clientAuthenticationType
+<a class="jxr_linenumber" name="L650" href="#L650">650</a>                 + <span class="jxr_string">"], clientSecret=["</span>
+<a class="jxr_linenumber" name="L651" href="#L651">651</a>                 + jwtRealm.clientAuthenticationSharedSecret
+<a class="jxr_linenumber" name="L652" href="#L652">652</a>                 + <span class="jxr_string">"], iss=["</span>
+<a class="jxr_linenumber" name="L653" href="#L653">653</a>                 + jwtRealm.allowedIssuer
+<a class="jxr_linenumber" name="L654" href="#L654">654</a>                 + <span class="jxr_string">"], aud="</span>
+<a class="jxr_linenumber" name="L655" href="#L655">655</a>                 + jwtRealm.allowedAudiences
+<a class="jxr_linenumber" name="L656" href="#L656">656</a>                 + <span class="jxr_string">", algsHmac="</span>
+<a class="jxr_linenumber" name="L657" href="#L657">657</a>                 + jwtRealm.allowedJwksAlgsHmac
+<a class="jxr_linenumber" name="L658" href="#L658">658</a>                 + <span class="jxr_string">", filteredHmac="</span>
+<a class="jxr_linenumber" name="L659" href="#L659">659</a>                 + jwtRealm.contentAndJwksAlgsHmac.jwksAlgs().algs()
+<a class="jxr_linenumber" name="L660" href="#L660">660</a>                 + <span class="jxr_string">", algsPkc="</span>
+<a class="jxr_linenumber" name="L661" href="#L661">661</a>                 + jwtRealm.allowedJwksAlgsPkc
+<a class="jxr_linenumber" name="L662" href="#L662">662</a>                 + <span class="jxr_string">", filteredPkc="</span>
+<a class="jxr_linenumber" name="L663" href="#L663">663</a>                 + jwtRealm.getJwksAlgsPkc().jwksAlgs().algs()
+<a class="jxr_linenumber" name="L664" href="#L664">664</a>                 + <span class="jxr_string">", claimPrincipal=["</span>
+<a class="jxr_linenumber" name="L665" href="#L665">665</a>                 + jwtRealm.claimParserPrincipal.getClaimName()
+<a class="jxr_linenumber" name="L666" href="#L666">666</a>                 + <span class="jxr_string">"], claimGroups=["</span>
+<a class="jxr_linenumber" name="L667" href="#L667">667</a>                 + jwtRealm.claimParserGroups.getClaimName()
+<a class="jxr_linenumber" name="L668" href="#L668">668</a>                 + <span class="jxr_string">"], authz=["</span>
+<a class="jxr_linenumber" name="L669" href="#L669">669</a>                 + jwtRealm.delegatedAuthorizationSupport.hasDelegation()
+<a class="jxr_linenumber" name="L670" href="#L670">670</a>                 + <span class="jxr_string">"], meta=["</span>
+<a class="jxr_linenumber" name="L671" href="#L671">671</a>                 + jwtRealm.populateUserMetadata
+<a class="jxr_linenumber" name="L672" href="#L672">672</a>                 + <span class="jxr_string">"], jwkSetPath=["</span>
+<a class="jxr_linenumber" name="L673" href="#L673">673</a>                 + jwtRealm.jwkSetPath
+<a class="jxr_linenumber" name="L674" href="#L674">674</a>                 + <span class="jxr_string">"]."</span>
+<a class="jxr_linenumber" name="L675" href="#L675">675</a>         );
+<a class="jxr_linenumber" name="L676" href="#L676">676</a>         <strong class="jxr_keyword">for</strong> (<strong class="jxr_keyword">final</strong> JWK jwk : jwtRealm.contentAndJwksAlgsHmac.jwksAlgs().jwks()) {
+<a class="jxr_linenumber" name="L677" href="#L677">677</a>             LOGGER.info(<span class="jxr_string">"REALM HMAC: jwk=[{}]"</span>, jwk);
+<a class="jxr_linenumber" name="L678" href="#L678">678</a>         }
+<a class="jxr_linenumber" name="L679" href="#L679">679</a>         <strong class="jxr_keyword">for</strong> (<strong class="jxr_keyword">final</strong> JWK jwk : jwtRealm.getJwksAlgsPkc().jwksAlgs().jwks()) {
+<a class="jxr_linenumber" name="L680" href="#L680">680</a>             LOGGER.info(<span class="jxr_string">"REALM PKC: jwk=[{}]"</span>, jwk);
+<a class="jxr_linenumber" name="L681" href="#L681">681</a>         }
+<a class="jxr_linenumber" name="L682" href="#L682">682</a>     }
+<a class="jxr_linenumber" name="L683" href="#L683">683</a> 
+<a class="jxr_linenumber" name="L684" href="#L684">684</a>     <strong class="jxr_keyword">protected</strong> <strong class="jxr_keyword">void</strong> printJwtIssuer(<strong class="jxr_keyword">final</strong> JwtIssuer jwtIssuer) {
+<a class="jxr_linenumber" name="L685" href="#L685">685</a>         LOGGER.info(
+<a class="jxr_linenumber" name="L686" href="#L686">686</a>             <span class="jxr_string">"ISSUER: iss=["</span>
+<a class="jxr_linenumber" name="L687" href="#L687">687</a>                 + jwtIssuer.issuerClaimValue
+<a class="jxr_linenumber" name="L688" href="#L688">688</a>                 + <span class="jxr_string">"], aud=["</span>
+<a class="jxr_linenumber" name="L689" href="#L689">689</a>                 + String.join(<span class="jxr_string">","</span>, jwtIssuer.audiencesClaimValue)
+<a class="jxr_linenumber" name="L690" href="#L690">690</a>                 + <span class="jxr_string">"], principal=["</span>
+<a class="jxr_linenumber" name="L691" href="#L691">691</a>                 + jwtIssuer.principalClaimName
+<a class="jxr_linenumber" name="L692" href="#L692">692</a>                 + <span class="jxr_string">"], algorithms=["</span>
+<a class="jxr_linenumber" name="L693" href="#L693">693</a>                 + String.join(<span class="jxr_string">","</span>, jwtIssuer.algorithmsAll)
+<a class="jxr_linenumber" name="L694" href="#L694">694</a>                 + <span class="jxr_string">"], httpServer=["</span>
+<a class="jxr_linenumber" name="L695" href="#L695">695</a>                 + (jwtIssuer.httpsServer != <strong class="jxr_keyword">null</strong>)
+<a class="jxr_linenumber" name="L696" href="#L696">696</a>                 + <span class="jxr_string">"]."</span>
+<a class="jxr_linenumber" name="L697" href="#L697">697</a>         );
+<a class="jxr_linenumber" name="L698" href="#L698">698</a>         <strong class="jxr_keyword">if</strong> (jwtIssuer.algAndJwkHmacOidc != <strong class="jxr_keyword">null</strong>) {
+<a class="jxr_linenumber" name="L699" href="#L699">699</a>             LOGGER.info(<span class="jxr_string">"ISSUER HMAC OIDC: alg=[{}] jwk=[{}]"</span>, jwtIssuer.algAndJwkHmacOidc.alg(), jwtIssuer.encodedKeyHmacOidc);
+<a class="jxr_linenumber" name="L700" href="#L700">700</a>         }
+<a class="jxr_linenumber" name="L701" href="#L701">701</a>         <strong class="jxr_keyword">for</strong> (<strong class="jxr_keyword">final</strong> JwtIssuer.AlgJwkPair pair : jwtIssuer.algAndJwksHmac) {
+<a class="jxr_linenumber" name="L702" href="#L702">702</a>             LOGGER.info(<span class="jxr_string">"ISSUER HMAC: alg=[{}] jwk=[{}]"</span>, pair.alg(), pair.jwk());
+<a class="jxr_linenumber" name="L703" href="#L703">703</a>         }
+<a class="jxr_linenumber" name="L704" href="#L704">704</a>         <strong class="jxr_keyword">for</strong> (<strong class="jxr_keyword">final</strong> JwtIssuer.AlgJwkPair pair : jwtIssuer.algAndJwksPkc) {
+<a class="jxr_linenumber" name="L705" href="#L705">705</a>             LOGGER.info(<span class="jxr_string">"ISSUER PKC: alg=[{}] jwk=[{}]"</span>, pair.alg(), pair.jwk());
+<a class="jxr_linenumber" name="L706" href="#L706">706</a>         }
+<a class="jxr_linenumber" name="L707" href="#L707">707</a>     }
+<a class="jxr_linenumber" name="L708" href="#L708">708</a> }
+</pre>
+<hr/>
+<div id="footer"></div>
+</body>
+</html>
